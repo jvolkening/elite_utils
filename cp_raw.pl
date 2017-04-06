@@ -38,18 +38,10 @@ my $fn_ready = "$DEST_DIR/$base.ready";
 # make sure value of $mzml is numeric
 $mzml = $mzml ? 1 : 0;
 
-# prepare 'ready' file
-die "ERROR: Target exists and won't overwrite\n"
+die "ERROR: $fn_ready exists and won't overwrite\n"
     if (-e $fn_ready);
-open my $ready, '>', $fn_ready
-    or die "ERROR creating ready file: $!\n";
-say {$ready} "user=", $user;
-say {$ready} "time=", localtime()->datetime;
-say {$ready} "mzml=", $mzml;
-say {$ready} "mzml=", $mzml;
-say {$ready} "type=", 'raw';
 
-die "File $fn_dest already exists and won't overwrite\n"
+die "ERROR: $fn_dest exists and won't overwrite\n"
     if (-e $fn_dest);
 
 copy( $fn_raw => $fn_dest )
@@ -61,8 +53,17 @@ open my $in, '<', $fn_raw
 my $dig = Digest::MD5->new;
 $dig->addfile($in);
 
+
+# prepare 'ready' file
+open my $ready, '>', $fn_ready
+    or die "ERROR creating ready file: $!\n";
+say {$ready} "user=", $user;
+say {$ready} "time=", localtime()->datetime;
+say {$ready} "mzml=", $mzml;
+say {$ready} "type=", 'raw';
 say {$ready} "md5=",  $dig->hexdigest;
 say {$ready} "file=", $base;
+say {$ready} "done=", '1';
 
 close $ready;
 

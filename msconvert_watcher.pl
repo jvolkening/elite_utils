@@ -73,27 +73,31 @@ sub process {
   LOOP:
   while (defined( my $fn_new = $queue->dequeue )) {
 
-    # sometimes file is read before it is done being written
-    my $size = -s $fn_new;
-    for (1..20) {
-        sleep 5;
-        last if ($size == -s $fn_new);
+    my $cfg;
+    for (1..10) {
+        $cfg = Config::Tiny->read($fn_new)->{_};
+        last if ($cfg->{done});
+        sleep 2;
     }
+    return if (! $cfg->{done});
 
     open my $in, '<', $fn_new or die "Error opening $fn_new: $!\n";
 
-    my $user = <$in>;
-    chomp $user;
-    my $date = <$in>;
-    chomp $date;
-    my $line = <$in>;
-    chomp $line;
+    my $user   = $cfg->{user};
+    my $fn_raw = $cfg->{file};
+    my $type   = $cfg->{type};
+    my $mzml   = $cfg->{mzml};
+    my $md5    = $cfg->{md5};
 
-    my ($fn_raw, $type, $md5) = split "\t", $line;
     next LOOP if (! defined $type || $type ne 'raw');
+    next LOOP if (! $mzml);
 
-    if (length($user) > 16 || $user =~ /[^\w\.\-]/) {
-        logger("Bad username ($user) for $fn_new");
+    if (length($user) > 16 || $user =~ /\W/) {
+        logger("ERROR: Bad username ($user) for $fn_new");
+        next LOOP;
+    }
+    if ($fn_raw =~ /[\\\/\&\|\;]/) {
+        logger( "ERROR: invalid filename $fn_raw" );
         next LOOP;
     }
     if (! -e "$TARGET/$fn_raw") {
@@ -115,6 +119,13 @@ sub process {
         logger("Error opening raw file $TARGET/$fn_raw: $!" );
         next LOOP;
     }
+
+    my $fn_mzml = basename($fn_raw);
+    $fn_mzml =~ s/\.raw$/\.mzML/i;
+    if (-e "$TARGET/$fn_mzml") {
+        logger("File $fn_mzml already exists and won't overwrite\n");
+        next LOOP;
+    }
         
     my $ret = system(
         'msconvert',
@@ -126,9 +137,6 @@ sub process {
         logger( "msconvert failed for $fn_raw" );
         next LOOP;
     }
-
-    my $fn_mzml = basename($fn_raw);
-    $fn_mzml =~ s/\.raw$/\.mzML/i;
 
     my $mzml_digest;
     if ( open my $mzml, '<', "$TARGET/$fn_mzml" ) {
@@ -147,12 +155,12 @@ sub process {
     }
 
     if (open my $ready, '>', "$TARGET/$fn_mzml.ready") {
-        say {$ready} $user;
-        say {$ready} localtime()->datetime;
-        say {$ready} join "\t",
-            $fn_mzml,
-            'mzml',
-            $mzml_digest;
+        say {$ready} "user=", $user;
+        say {$ready} "time=", localtime()->datetime;
+        say {$ready} "type=", 'mzml';
+        say {$ready} "md5=",  $mzml_digest;
+        say {$ready} "file=", $fn_mzml;
+        say {$ready} "done=", '1';
         close $ready;
     }
     else {
