@@ -79,7 +79,7 @@ sub process {
         last if ($cfg->{done});
         sleep 2;
     }
-    return if (! $cfg->{done});
+    next LOOP if (! $cfg->{done});
 
     open my $in, '<', $fn_new or die "Error opening $fn_new: $!\n";
 
