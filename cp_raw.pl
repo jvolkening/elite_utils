@@ -47,6 +47,8 @@ die "ERROR: $fn_dest exists and won't overwrite\n"
 copy( $fn_raw => $fn_dest )
     or die "ERROR transfering file: $!\n";
 
+my $size = -s $fn_raw;
+
 # calculate checksum
 open my $in, '<', $fn_raw
     or die "Failed to open $fn_raw for reading\n";
@@ -62,6 +64,7 @@ say {$ready} "time=", localtime()->datetime;
 say {$ready} "mzml=", $mzml;
 say {$ready} "type=", 'raw';
 say {$ready} "md5=",  $dig->hexdigest;
+say {$ready} "size=", $size;
 say {$ready} "file=", $base;
 say {$ready} "done=", '1';
 

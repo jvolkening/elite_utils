@@ -5,6 +5,7 @@ use warnings;
 use 5.012;
 
 use Config::Tiny;
+use Digest::MD5;
 use File::Copy qw/copy/;
 use File::Path qw/make_path/;
 use Linux::Inotify2;
@@ -59,10 +60,22 @@ sub handle_new {
         return;
     }
         
-    if (! -r IN . "/$file") {
-        logger( "ERROR: $file not found" );
+    my $md5 = $cfg->{md5};
+    if (open my $input, '<', IN . "/$file") {
+
+        my $digest = Digest::MD5->new();
+        $digest->addfile($input);
+        if ($digest->hexdigest() ne $md5) {
+            logger( "Bad digest for $file" );
+            return;
+        }
+
+    }
+    else {
+        logger("Error opening file " . IN . "/$file: $!" );
         return;
     }
+
     my $out_path = join '/',
         OUT,
         $user,
