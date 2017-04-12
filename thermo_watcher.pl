@@ -61,7 +61,7 @@ sub handle_new {
     }
         
     my $md5 = $cfg->{md5};
-    if (open my $input, '<', IN . "/$file") {
+    if (open my $input, '<:raw', IN . "/$file") {
 
         my $digest = Digest::MD5->new();
         $digest->addfile($input);

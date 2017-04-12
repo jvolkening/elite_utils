@@ -105,7 +105,7 @@ sub process {
         next LOOP;
     }
 
-    if (open my $raw, '<', "$TARGET/$fn_raw") {
+    if (open my $raw, '<:raw', "$TARGET/$fn_raw") {
 
         my $digest = Digest::MD5->new();
         $digest->addfile($raw);
@@ -139,7 +139,7 @@ sub process {
     }
 
     my $mzml_digest;
-    if ( open my $mzml, '<', "$TARGET/$fn_mzml" ) {
+    if ( open my $mzml, '<:raw', "$TARGET/$fn_mzml" ) {
         my $digest = Digest::MD5->new();
         $digest->addfile($mzml);
         $mzml_digest = $digest->hexdigest;

@@ -50,7 +50,7 @@ copy( $fn_raw => $fn_dest )
 my $size = -s $fn_raw;
 
 # calculate checksum
-open my $in, '<', $fn_raw
+open my $in, '<:raw', $fn_raw
     or die "Failed to open $fn_raw for reading\n";
 my $dig = Digest::MD5->new;
 $dig->addfile($in);
