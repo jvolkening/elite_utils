@@ -9,9 +9,9 @@ use Cwd qw/abs_path/;
 use Digest::MD5;
 use Encode qw/decode/;
 use File::Basename qw/basename fileparse/;
-use File::Path qw/make_path/;
 use File::Copy;
-use File::Which;
+use File::Path qw/make_path/;
+use File::Temp;
 use Getopt::Long;
 use Time::Piece;
 
@@ -45,8 +45,12 @@ my ($base, $path, $suff) = fileparse( abs_path($fn_raw) );
 $path =~ s/^[A-Z]\:[\\\/]//
    or die "ERROR: RAW file path must be absolute\n";
 
-my $fn_dest  = "$DEST_DIR/$base";
-my $fn_ready = "$DEST_DIR/$base.ready";
+my $fn_dest  = "$DEST_DIR/$path/$base";
+my $fn_ready  = File::Temp->new(
+    DIR    => $DEST_DIR,
+    UNLINK => 0,
+    SUFFIX => '.ready',
+);
 
 # make sure values of $mzml and $mgf are numeric
 $mzml = $mzml ? 1 : 0;

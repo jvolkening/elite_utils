@@ -64,7 +64,7 @@ sub handle_new {
     }
         
     my $md5 = $cfg->{md5};
-    if (open my $input, '<:raw', IN . "/$file") {
+    if (open my $input, '<:raw', IN . "/$path/$file") {
 
         my $digest = Digest::MD5->new();
         $digest->addfile($input);
@@ -94,20 +94,19 @@ sub handle_new {
         return;
     }
 
-    say "cp ", IN, "/$file => ", "$out_path/$file";
-
     if (-e "$out_path/$file") {
         logger( "WARN: $out_path/$file exists and won't overwrite" );
         return;
     }
 
-    if (! copy( IN . "/$file" => "$out_path/$file" ) ) {
+    say "cp ", IN, "/$path/$file => ", "$out_path/$file";
+
+    if (! copy( IN . "/$path/$file" => "$out_path/$file" ) ) {
         logger( "ERROR copying $file: $!" );
         return;
     }
         
-    logger( "Successfully transfered $file" );
-        
+    logger( "Successfully transfered $path/$file" );
     
 }
 
