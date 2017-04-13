@@ -11,6 +11,7 @@ use 5.012;
 use Config::Tiny;
 use Digest::MD5;
 use File::Basename qw/basename/;
+use File::Temp;
 use threads;
 use Thread::Queue;
 use Time::Piece;
@@ -103,12 +104,12 @@ sub process {
         logger( "ERROR: invalid filename $fn_raw" );
         next LOOP;
     }
-    if (! -e "$TARGET/$fn_raw") {
-        logger("File not found: $TARGET/$fn_raw" );
+    if (! -e "$TARGET/$path$fn_raw") {
+        logger("File not found: $TARGET/$path$fn_raw" );
         next LOOP;
     }
 
-    if (open my $raw, '<:raw', "$TARGET/$fn_raw") {
+    if (open my $raw, '<:raw', "$TARGET/$path$fn_raw") {
 
         my $digest = Digest::MD5->new();
         $digest->addfile($raw);
@@ -119,14 +120,14 @@ sub process {
 
     }
     else {
-        logger("Error opening raw file $TARGET/$fn_raw: $!" );
+        logger("Error opening raw file $TARGET/$path$fn_raw: $!" );
         next LOOP;
     }
 
-    convert( $fn_raw, 'mzml', 'mzML', \@msconvert_mzml_args );
+    convert( $fn_raw, 'mzml', 'mzML', $path, \@msconvert_mzml_args )
         if ($mzml);
-    convert( $fn_raw, 'mgf', 'mgf', \@msconvert_mgf_args );
-        if ($mzml);
+    convert( $fn_raw, 'mgf', 'mgf', $path, \@msconvert_mgf_args )
+        if ($mgf);
 
   }
 
@@ -147,58 +148,54 @@ sub logger {
 
 sub convert {
 
-    my ($fn_raw, $type, $suffix, $arg_ref) = @_;
+    my ($fn_raw, $type, $suffix, $path, $arg_ref) = @_;
 
     my $fn_conv = basename($fn_raw);
     $fn_conv =~ s/\.raw$/\.$suffix/i;
-    if (-e "$TARGET/$fn_conv") {
-        logger("File $fn_conv already exists and won't overwrite\n");
-        next LOOP;
+    if (-e "$TARGET/$path$fn_conv") {
+        logger("File $path$fn_conv already exists and won't overwrite\n");
+        return;
     }
         
     my $ret = system(
         'msconvert',
         @{$arg_ref},
-        '--outdir' => "\"$TARGET\"",
-        "\"$TARGET/$fn_raw\""
+        '--outdir' => "\"$TARGET/$path\"",
+        "\"$TARGET/$path$fn_raw\""
     );
     if ($ret) {
-        logger( "msconvert to $type failed for $fn_raw" );
-        next LOOP;
+        logger( "msconvert to $type failed for $path$fn_raw" );
+        return;
     }
 
     my $conv_digest;
-    if ( open my $conv, '<:raw', "$TARGET/$fn_conv" ) {
+    if ( open my $conv, '<:raw', "$TARGET/$path$fn_conv" ) {
         my $digest = Digest::MD5->new();
         $digest->addfile($conv);
         $conv_digest = $digest->hexdigest;
     }
     else {
-        logger("Error opening $type file $TARGET/$fn_conv: $!" );
-        next LOOP;
+        logger("Error opening $type file $TARGET/$path$fn_conv: $!" );
+        return;
     }
 
-    if (-e "$TARGET/$fn_conv.ready") {
-        logger( "found existing ready file $fn_conv.ready" );
-        next LOOP;
-    }
+    # prepare 'ready' file
+    my $ready  = File::Temp->new(
+        DIR    => $TARGET,
+        UNLINK => 0,
+        SUFFIX => '.ready',
+    );
+    say {$ready} "path=", $path;
+    say {$ready} "time=", localtime()->datetime;
+    say {$ready} "type=", $type;
+    say {$ready} "md5=",  $conv_digest;
+    say {$ready} "file=", $fn_conv;
+    say {$ready} "done=", '1';
+    close $ready;
 
-    if (open my $ready, '>', "$TARGET/$fn_mzml.ready") {
-        say {$ready} "path=", $path;
-        say {$ready} "time=", localtime()->datetime;
-        say {$ready} "type=", $type;
-        say {$ready} "md5=",  $conv_digest;
-        say {$ready} "file=", $fn_conv;
-        say {$ready} "done=", '1';
-        close $ready;
-    }
-    else {
-        logger( "Error opening ready file for $fn_conv: $!" );
-        next LOOP;
-    }
+    logger( "Successfully converted $path$fn_raw" );
 
-    logger( "Successfully converted $fn_raw" );
-
+}
 
 END {
 
