@@ -8,6 +8,7 @@ use strict;
 use warnings;
 use 5.012;
 
+use Config::Tiny;
 use Digest::MD5;
 use File::Basename qw/basename/;
 use threads;
