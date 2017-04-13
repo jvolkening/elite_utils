@@ -5,9 +5,10 @@ use warnings;
 
 use 5.012;
 
+use Cwd qw/abs_path/;
 use Digest::MD5;
 use Encode qw/decode/;
-use File::Basename qw/basename/;
+use File::Basename qw/basename fileparse/;
 use File::Path qw/make_path/;
 use File::Copy;
 use File::Which;
@@ -18,24 +19,18 @@ my $DEST_DIR = "T:/incoming";
 my $DEFAULT_USER = 'other';
 
 my $fn_raw;
-my $user;
 my $mzml;
 my $mgf;
 
 GetOptions(
     'raw=s'  => \$fn_raw,
-    'user=s' => \$user,
     'mzml'   => \$mzml,
 ) or die "ERROR parsing command line: $@\n";
 
 die "ERROR: No such RAW file or file not readable\n"
     if (! -r $fn_raw);
 
-my ($filename, $head_user, $head_mzml, $head_mgf) = parse_raw($fn_raw);
-
-$user = defined $user      ? $user
-      : defined $head_user ? $head_user
-      : $DEFAULT_USER;
+my ($filename, $head_mzml, $head_mgf) = parse_raw($fn_raw);
 
 $mzml = defined $mzml      ? $mzml
       : defined $head_mzml ? $head_mzml
@@ -45,11 +40,11 @@ $mgf  = defined $mgf      ? $mgf
       : defined $head_mgf ? $head_mgf
       : 0;
 
-$user =~ s/\s/_/g;
-die "Invalid user name (max 16 chars w/ only alphanumerics and underscore)\n"
-    if ($user =~ /\W/ || length($user) > 16);
+my ($base, $path, $suff) = fileparse( abs_path($fn_raw) );
 
-my $base     = basename($fn_raw);
+$path =~ s/^[A-Z]\:[\\\/]//
+   or die "ERROR: RAW file path must be absolute\n";
+
 my $fn_dest  = "$DEST_DIR/$base";
 my $fn_ready = "$DEST_DIR/$base.ready";
 
@@ -78,7 +73,7 @@ $dig->addfile($in);
 # prepare 'ready' file
 open my $ready, '>', $fn_ready
     or die "ERROR creating ready file: $!\n";
-say {$ready} "user=", $user;
+say {$ready} "path=", $path;
 say {$ready} "time=", localtime()->datetime;
 say {$ready} "mzml=", $mzml;
 say {$ready} "mgf=",  $mgf;
@@ -122,7 +117,7 @@ sub parse_raw {
     die "Parsed filename not found\n"
         if (! -e $filename);
 
-    return ($filename, $user_1, $user_2, $user_3);
+    return ($filename, $user_1, $user_2);
 
 }
 

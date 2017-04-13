@@ -44,11 +44,14 @@ sub handle_new {
     }
     return if (! $cfg->{done});
 
-    my $user = $cfg->{user};
-    if (! defined $user) {
-        logger( "ERROR: no user defined in $fn" );
+    my $path = $cfg->{path};
+    if (! defined $path) {
+        logger( "ERROR: no path defined in $fn" );
         return;
     }
+    die "No backtracking allowed in path\n"
+        if ($path =~ /\.\./);
+
     my $file = $cfg->{file};
     if (! defined $file) {
         logger( "ERROR: no file defined in $fn" );
@@ -78,8 +81,8 @@ sub handle_new {
 
     my $out_path = join '/',
         OUT,
-        $user,
-        localtime()->ymd();
+        $path;
+
     if (! -e $out_path) {
         if (! make_path($out_path) ) {
             logger( "ERROR creating path $out_path" );

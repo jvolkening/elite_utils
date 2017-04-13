@@ -83,7 +83,7 @@ sub process {
 
     open my $in, '<', $fn_new or die "Error opening $fn_new: $!\n";
 
-    my $user   = $cfg->{user};
+    my $path   = $cfg->{path};
     my $fn_raw = $cfg->{file};
     my $type   = $cfg->{type};
     my $mzml   = $cfg->{mzml};
@@ -92,10 +92,6 @@ sub process {
     next LOOP if (! defined $type || $type ne 'raw');
     next LOOP if (! $mzml);
 
-    if (length($user) > 16 || $user =~ /\W/) {
-        logger("ERROR: Bad username ($user) for $fn_new");
-        next LOOP;
-    }
     if ($fn_raw =~ /[\\\/\&\|\;]/) {
         logger( "ERROR: invalid filename $fn_raw" );
         next LOOP;
@@ -155,7 +151,7 @@ sub process {
     }
 
     if (open my $ready, '>', "$TARGET/$fn_mzml.ready") {
-        say {$ready} "user=", $user;
+        say {$ready} "path=", $path;
         say {$ready} "time=", localtime()->datetime;
         say {$ready} "type=", 'mzml';
         say {$ready} "md5=",  $mzml_digest;
