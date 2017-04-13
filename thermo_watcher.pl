@@ -38,9 +38,15 @@ sub handle_new {
 
     my $cfg;
     for (1..10) {
-        $cfg = Config::Tiny->read($fn)->{_};
-        last if ($cfg->{done});
-        sleep 2;
+        if ($cfg = Config::Tiny->read($fn)) {
+            $cfg = $cfg->{_};
+            last if ($cfg->{done});
+            sleep 2;
+        }
+        else {
+            logger( "ERROR: failed to parse ready file $fn" );
+            return;
+        }
     }
     return if (! $cfg->{done});
 
@@ -64,7 +70,7 @@ sub handle_new {
     }
         
     my $md5 = $cfg->{md5};
-    if (open my $input, '<:raw', IN . "/$path/$file") {
+    if (open my $input, '<:raw', IN . "/$path$file") {
 
         my $digest = Digest::MD5->new();
         $digest->addfile($input);
@@ -94,19 +100,19 @@ sub handle_new {
         return;
     }
 
-    if (-e "$out_path/$file") {
-        logger( "WARN: $out_path/$file exists and won't overwrite" );
+    if (-e "$out_path$file") {
+        logger( "WARN: $out_path$file exists and won't overwrite" );
         return;
     }
 
-    say "cp ", IN, "/$path/$file => ", "$out_path/$file";
+    say "cp ", IN, "/$path$file => ", "$out_path$file";
 
-    if (! copy( IN . "/$path/$file" => "$out_path/$file" ) ) {
+    if (! copy( IN . "/$path$file" => "$out_path$file" ) ) {
         logger( "ERROR copying $file: $!" );
         return;
     }
         
-    logger( "Successfully transfered $path/$file" );
+    logger( "Successfully transfered $path$file" );
     
 }
 

@@ -17,6 +17,7 @@ use Time::Piece;
 
 my $DEST_DIR = "T:/incoming";
 my $DEFAULT_USER = 'other';
+my $EXTRA = 'Orbi_data';
 
 my $fn_raw;
 my $mzml;
@@ -44,24 +45,26 @@ my ($base, $path, $suff) = fileparse( abs_path($fn_raw) );
 
 $path =~ s/^[A-Z]\:[\\\/]//
    or die "ERROR: RAW file path must be absolute\n";
+$path =~ s/$EXTRA[\\\/]//;
 
-my $fn_dest  = "$DEST_DIR/$path/$base";
-my $fn_ready  = File::Temp->new(
-    DIR    => $DEST_DIR,
-    UNLINK => 0,
-    SUFFIX => '.ready',
-);
+my $out_path = "$DEST_DIR/$path";
+my $fn_dest  = "$out_path$base";
+
+if (! -e $out_path) {
+    if (! make_path($out_path) ) {
+        logger( "ERROR creating path $out_path" );
+        return;
+    }
+}
 
 # make sure values of $mzml and $mgf are numeric
 $mzml = $mzml ? 1 : 0;
 $mgf  = $mgf  ? 1 : 0;
 
-die "ERROR: $fn_ready exists and won't overwrite\n"
-    if (-e $fn_ready);
-
 die "ERROR: $fn_dest exists and won't overwrite\n"
     if (-e $fn_dest);
 
+warn "cp $fn_raw => $fn_dest\n";
 copy( $fn_raw => $fn_dest )
     or die "ERROR transfering file: $!\n";
 
@@ -75,8 +78,11 @@ $dig->addfile($in);
 
 
 # prepare 'ready' file
-open my $ready, '>', $fn_ready
-    or die "ERROR creating ready file: $!\n";
+my $ready  = File::Temp->new(
+    DIR    => $DEST_DIR,
+    UNLINK => 0,
+    SUFFIX => '.ready',
+);
 say {$ready} "path=", $path;
 say {$ready} "time=", localtime()->datetime;
 say {$ready} "mzml=", $mzml;
@@ -105,9 +111,9 @@ sub parse_raw {
     die "Bad sig\n" if ($sig ne "Finnigan\0");
 
     # skip rest of header
-    seek STDIN, 1336, 1;
+    seek $raw, 1336, 1;
     # skip injection data
-    seek STDIN, 64, 1;
+    seek $raw, 64, 1;
 
     my @fields = map {read_pascal($raw)} 1..13;
 
