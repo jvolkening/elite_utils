@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use 5.012;
 
+use File::Find;
 use Time::Piece;
 
 my $max_age = $ARGV[0] // 0; # in days
@@ -11,10 +12,20 @@ my $max_age = $ARGV[0] // 0; # in days
 use constant IN  => "$ENV{HOME}/incoming";
 use constant LOG => "$ENV{HOME}/cleanup.log";
 
-for my $candidate (glob IN . '/*') {
+find(
+    {
+        wanted => \&process,
+        no_chdir => 1,
+    }, 
+    IN
+);
 
-    next if (-M $candidate <= $max_age);
-    logger( "Cleaned up $candidate" );
+sub process {
+
+    my $fn = $_;
+    next if (! -f $fn);
+    next if (-M $fn <= $max_age);
+    logger( "Cleaned up $fn" );
     #unlink $candidate;
 
 }
