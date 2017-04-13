@@ -18,10 +18,15 @@ use Win32::ChangeNotify;
 my $BASE = $ARGV[0] // "T:/";
 
 # configure msconvert
-my @msconvert_args = (
+my @msconvert_mzml_args = (
     '--mzML',
     '--numpressAll',
     '--noindex',
+    '--filter' => '"peakPicking true 1-"',
+    '--filter' => '"defaultArrayLength 2-"',
+);
+my @msconvert_mgf_args = (
+    '--mgf',
     '--filter' => '"peakPicking true 1-"',
     '--filter' => '"defaultArrayLength 2-"',
 );
@@ -87,10 +92,11 @@ sub process {
     my $fn_raw = $cfg->{file};
     my $type   = $cfg->{type};
     my $mzml   = $cfg->{mzml};
+    my $mgf    = $cfg->{mgf};
     my $md5    = $cfg->{md5};
 
     next LOOP if (! defined $type || $type ne 'raw');
-    next LOOP if (! $mzml);
+    next LOOP if (! $mzml && ! $mgf);
 
     if (length($user) > 16 || $user =~ /\W/) {
         logger("ERROR: Bad username ($user) for $fn_new");
@@ -120,55 +126,10 @@ sub process {
         next LOOP;
     }
 
-    my $fn_mzml = basename($fn_raw);
-    $fn_mzml =~ s/\.raw$/\.mzML/i;
-    if (-e "$TARGET/$fn_mzml") {
-        logger("File $fn_mzml already exists and won't overwrite\n");
-        next LOOP;
-    }
-        
-    my $ret = system(
-        'msconvert',
-        @msconvert_args,
-        '--outdir' => "\"$TARGET\"",
-        "\"$TARGET/$fn_raw\""
-    );
-    if ($ret) {
-        logger( "msconvert failed for $fn_raw" );
-        next LOOP;
-    }
-
-    my $mzml_digest;
-    if ( open my $mzml, '<:raw', "$TARGET/$fn_mzml" ) {
-        my $digest = Digest::MD5->new();
-        $digest->addfile($mzml);
-        $mzml_digest = $digest->hexdigest;
-    }
-    else {
-        logger("Error opening mzML file $TARGET/$fn_mzml: $!" );
-        next LOOP;
-    }
-
-    if (-e "$TARGET/$fn_mzml.ready") {
-        logger( "found existing ready file $fn_mzml.ready" );
-        next LOOP;
-    }
-
-    if (open my $ready, '>', "$TARGET/$fn_mzml.ready") {
-        say {$ready} "user=", $user;
-        say {$ready} "time=", localtime()->datetime;
-        say {$ready} "type=", 'mzml';
-        say {$ready} "md5=",  $mzml_digest;
-        say {$ready} "file=", $fn_mzml;
-        say {$ready} "done=", '1';
-        close $ready;
-    }
-    else {
-        logger( "Error opening ready file for $fn_mzml: $!" );
-        next LOOP;
-    }
-
-    logger( "Successfully converted $fn_raw" );
+    convert( $fn_raw, 'mzml', 'mzML', \@msconvert_mzml_args );
+        if ($mzml);
+    convert( $fn_raw, 'mgf', 'mgf', \@msconvert_mgf_args );
+        if ($mzml);
 
   }
 
@@ -186,6 +147,61 @@ sub logger {
     close $log;
 
 }
+
+sub convert {
+
+    my ($fn_raw, $type, $suffix, $arg_ref) = @_;
+
+    my $fn_conv = basename($fn_raw);
+    $fn_conv =~ s/\.raw$/\.$suffix/i;
+    if (-e "$TARGET/$fn_conv") {
+        logger("File $fn_conv already exists and won't overwrite\n");
+        next LOOP;
+    }
+        
+    my $ret = system(
+        'msconvert',
+        @{$arg_ref},
+        '--outdir' => "\"$TARGET\"",
+        "\"$TARGET/$fn_raw\""
+    );
+    if ($ret) {
+        logger( "msconvert to $type failed for $fn_raw" );
+        next LOOP;
+    }
+
+    my $conv_digest;
+    if ( open my $conv, '<:raw', "$TARGET/$fn_conv" ) {
+        my $digest = Digest::MD5->new();
+        $digest->addfile($conv);
+        $conv_digest = $digest->hexdigest;
+    }
+    else {
+        logger("Error opening $type file $TARGET/$fn_conv: $!" );
+        next LOOP;
+    }
+
+    if (-e "$TARGET/$fn_conv.ready") {
+        logger( "found existing ready file $fn_conv.ready" );
+        next LOOP;
+    }
+
+    if (open my $ready, '>', "$TARGET/$fn_conv.ready") {
+        say {$ready} "user=", $user;
+        say {$ready} "time=", localtime()->datetime;
+        say {$ready} "type=", $type;
+        say {$ready} "md5=",  $conv_digest;
+        say {$ready} "file=", $fn_conv;
+        say {$ready} "done=", '1';
+        close $ready;
+    }
+    else {
+        logger( "Error opening ready file for $fn_conv: $!" );
+        next LOOP;
+    }
+
+    logger( "Successfully converted $fn_raw" );
+
 
 END {
 
