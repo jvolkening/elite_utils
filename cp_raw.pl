@@ -106,9 +106,9 @@ sub parse_raw {
     die "Bad sig\n" if ($sig ne "Finnigan\0");
 
     # skip rest of header
-    seek STDIN, 1336, 1;
+    seek $raw, 1336, 1;
     # skip injection data
-    seek STDIN, 64, 1;
+    seek $raw, 64, 1;
 
     my @fields = map {read_pascal($raw)} 1..13;
 
