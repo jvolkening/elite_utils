@@ -5,37 +5,34 @@ use warnings;
 
 use 5.012;
 
+use Cwd qw/abs_path/;
 use Digest::MD5;
 use Encode qw/decode/;
-use File::Basename qw/basename/;
-use File::Path qw/make_path/;
+use File::Basename qw/basename fileparse/;
 use File::Copy;
-use File::Which;
+use File::Path qw/make_path/;
+use File::Temp;
 use Getopt::Long;
 use Time::Piece;
 
 my $DEST_DIR = "T:/incoming";
 my $DEFAULT_USER = 'other';
+my $EXTRA = 'Orbi_data';
 
 my $fn_raw;
-my $user;
 my $mzml;
 my $mgf;
 
 GetOptions(
     'raw=s'  => \$fn_raw,
-    'user=s' => \$user,
     'mzml'   => \$mzml,
+    'mgf'    => \$mgf,
 ) or die "ERROR parsing command line: $@\n";
 
 die "ERROR: No such RAW file or file not readable\n"
     if (! -r $fn_raw);
 
-my ($filename, $head_user, $head_mzml, $head_mgf) = parse_raw($fn_raw);
-
-$user = defined $user      ? $user
-      : defined $head_user ? $head_user
-      : $DEFAULT_USER;
+my ($filename, $head_mzml, $head_mgf) = parse_raw($fn_raw);
 
 $mzml = defined $mzml      ? $mzml
       : defined $head_mzml ? $head_mzml
@@ -45,24 +42,30 @@ $mgf  = defined $mgf      ? $mgf
       : defined $head_mgf ? $head_mgf
       : 0;
 
-$user =~ s/\s/_/g;
-die "Invalid user name (max 16 chars w/ only alphanumerics and underscore)\n"
-    if ($user =~ /\W/ || length($user) > 16);
+my ($base, $path, $suff) = fileparse( abs_path($fn_raw) );
 
-my $base     = basename($fn_raw);
-my $fn_dest  = "$DEST_DIR/$base";
-my $fn_ready = "$DEST_DIR/$base.ready";
+$path =~ s/^[A-Z]\:[\\\/]//
+   or die "ERROR: RAW file path must be absolute\n";
+$path =~ s/$EXTRA[\\\/]//;
+
+my $out_path = "$DEST_DIR/$path";
+my $fn_dest  = "$out_path$base";
+
+if (! -e $out_path) {
+    if (! make_path($out_path) ) {
+        logger( "ERROR creating path $out_path" );
+        return;
+    }
+}
 
 # make sure values of $mzml and $mgf are numeric
 $mzml = $mzml ? 1 : 0;
 $mgf  = $mgf  ? 1 : 0;
 
-die "ERROR: $fn_ready exists and won't overwrite\n"
-    if (-e $fn_ready);
-
 die "ERROR: $fn_dest exists and won't overwrite\n"
     if (-e $fn_dest);
 
+warn "cp $fn_raw => $fn_dest\n";
 copy( $fn_raw => $fn_dest )
     or die "ERROR transfering file: $!\n";
 
@@ -76,9 +79,12 @@ $dig->addfile($in);
 
 
 # prepare 'ready' file
-open my $ready, '>', $fn_ready
-    or die "ERROR creating ready file: $!\n";
-say {$ready} "user=", $user;
+my $ready  = File::Temp->new(
+    DIR    => $DEST_DIR,
+    UNLINK => 0,
+    SUFFIX => '.ready',
+);
+say {$ready} "path=", $path;
 say {$ready} "time=", localtime()->datetime;
 say {$ready} "mzml=", $mzml;
 say {$ready} "mgf=",  $mgf;
@@ -122,7 +128,7 @@ sub parse_raw {
     die "Parsed filename not found\n"
         if (! -e $filename);
 
-    return ($filename, $user_1, $user_2, $user_3);
+    return ($filename, $user_1, $user_2);
 
 }
 

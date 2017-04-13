@@ -8,6 +8,7 @@ use strict;
 use warnings;
 use 5.012;
 
+use Config::Tiny;
 use Digest::MD5;
 use File::Basename qw/basename/;
 use threads;
@@ -88,7 +89,7 @@ sub process {
 
     open my $in, '<', $fn_new or die "Error opening $fn_new: $!\n";
 
-    my $user   = $cfg->{user};
+    my $path   = $cfg->{path};
     my $fn_raw = $cfg->{file};
     my $type   = $cfg->{type};
     my $mzml   = $cfg->{mzml};
@@ -98,10 +99,6 @@ sub process {
     next LOOP if (! defined $type || $type ne 'raw');
     next LOOP if (! $mzml && ! $mgf);
 
-    if (length($user) > 16 || $user =~ /\W/) {
-        logger("ERROR: Bad username ($user) for $fn_new");
-        next LOOP;
-    }
     if ($fn_raw =~ /[\\\/\&\|\;]/) {
         logger( "ERROR: invalid filename $fn_raw" );
         next LOOP;
@@ -186,8 +183,8 @@ sub convert {
         next LOOP;
     }
 
-    if (open my $ready, '>', "$TARGET/$fn_conv.ready") {
-        say {$ready} "user=", $user;
+    if (open my $ready, '>', "$TARGET/$fn_mzml.ready") {
+        say {$ready} "path=", $path;
         say {$ready} "time=", localtime()->datetime;
         say {$ready} "type=", $type;
         say {$ready} "md5=",  $conv_digest;

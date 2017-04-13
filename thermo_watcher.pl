@@ -38,17 +38,26 @@ sub handle_new {
 
     my $cfg;
     for (1..10) {
-        $cfg = Config::Tiny->read($fn)->{_};
-        last if ($cfg->{done});
-        sleep 2;
+        if ($cfg = Config::Tiny->read($fn)) {
+            $cfg = $cfg->{_};
+            last if ($cfg->{done});
+            sleep 2;
+        }
+        else {
+            logger( "ERROR: failed to parse ready file $fn" );
+            return;
+        }
     }
     return if (! $cfg->{done});
 
-    my $user = $cfg->{user};
-    if (! defined $user) {
-        logger( "ERROR: no user defined in $fn" );
+    my $path = $cfg->{path};
+    if (! defined $path) {
+        logger( "ERROR: no path defined in $fn" );
         return;
     }
+    die "No backtracking allowed in path\n"
+        if ($path =~ /\.\./);
+
     my $file = $cfg->{file};
     if (! defined $file) {
         logger( "ERROR: no file defined in $fn" );
@@ -61,7 +70,7 @@ sub handle_new {
     }
         
     my $md5 = $cfg->{md5};
-    if (open my $input, '<:raw', IN . "/$file") {
+    if (open my $input, '<:raw', IN . "/$path$file") {
 
         my $digest = Digest::MD5->new();
         $digest->addfile($input);
@@ -78,8 +87,8 @@ sub handle_new {
 
     my $out_path = join '/',
         OUT,
-        $user,
-        localtime()->ymd();
+        $path;
+
     if (! -e $out_path) {
         if (! make_path($out_path) ) {
             logger( "ERROR creating path $out_path" );
@@ -91,20 +100,19 @@ sub handle_new {
         return;
     }
 
-    say "cp ", IN, "/$file => ", "$out_path/$file";
-
-    if (-e "$out_path/$file") {
-        logger( "WARN: $out_path/$file exists and won't overwrite" );
+    if (-e "$out_path$file") {
+        logger( "WARN: $out_path$file exists and won't overwrite" );
         return;
     }
 
-    if (! copy( IN . "/$file" => "$out_path/$file" ) ) {
+    say "cp ", IN, "/$path$file => ", "$out_path$file";
+
+    if (! copy( IN . "/$path$file" => "$out_path$file" ) ) {
         logger( "ERROR copying $file: $!" );
         return;
     }
         
-    logger( "Successfully transfered $file" );
-        
+    logger( "Successfully transfered $path$file" );
     
 }
 
