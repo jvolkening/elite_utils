@@ -22,17 +22,19 @@ my $EXTRA = 'Orbi_data';
 my $fn_raw;
 my $mzml;
 my $mgf;
+my $galaxy;
 
 GetOptions(
-    'raw=s'  => \$fn_raw,
-    'mzml'   => \$mzml,
-    'mgf'    => \$mgf,
+    'raw=s'         => \$fn_raw,
+    'mzml'          => \$mzml,
+    'mgf'           => \$mgf,
+    'galaxy_user=s' => \$galaxy,
 ) or die "ERROR parsing command line: $@\n";
 
 die "ERROR: No such RAW file or file not readable\n"
     if (! -r $fn_raw);
 
-my ($filename, $head_mzml, $head_mgf) = parse_raw($fn_raw);
+my ($filename, $head_mzml, $head_mgf, $head_galaxy) = parse_raw($fn_raw);
 
 $mzml = defined $mzml      ? $mzml
       : defined $head_mzml ? $head_mzml
@@ -41,6 +43,10 @@ $mzml = defined $mzml      ? $mzml
 $mgf  = defined $mgf      ? $mgf
       : defined $head_mgf ? $head_mgf
       : 0;
+
+$galaxy = defined $galaxy ? $galaxy
+        : length $head_galaxy ? $head_galaxy
+        : '';
 
 my ($base, $path, $suff) = fileparse( abs_path($fn_raw) );
 
@@ -84,15 +90,16 @@ my $ready  = File::Temp->new(
     UNLINK => 0,
     SUFFIX => '.ready',
 );
-say {$ready} "path=", $path;
-say {$ready} "time=", localtime()->datetime;
-say {$ready} "mzml=", $mzml;
-say {$ready} "mgf=",  $mgf;
-say {$ready} "type=", 'raw';
-say {$ready} "md5=",  $dig->hexdigest;
-say {$ready} "size=", $size;
-say {$ready} "file=", $base;
-say {$ready} "done=", '1';
+say {$ready} "path=",        $path;
+say {$ready} "time=",        localtime()->datetime;
+say {$ready} "mzml=",        $mzml;
+say {$ready} "mgf=",         $mgf;
+say {$ready} "type=",        'raw';
+say {$ready} "md5=",         $dig->hexdigest;
+say {$ready} "size=",        $size;
+say {$ready} "file=",        $base;
+say {$ready} "galaxy_user=", $galaxy;
+say {$ready} "done=",        '1';
 
 close $ready;
 
@@ -128,7 +135,7 @@ sub parse_raw {
     die "Parsed filename not found\n"
         if (! -e $filename);
 
-    return ($filename, $user_1, $user_2);
+    return ($filename, $user_1, $user_2, $user_3);
 
 }
 
