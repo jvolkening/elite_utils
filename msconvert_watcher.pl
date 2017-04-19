@@ -23,7 +23,6 @@ my $BASE = $ARGV[0] // "T:/";
 my @msconvert_mzml_args = (
     '--mzML',
     '--numpressAll',
-    '--noindex',
     '--filter' => '"peakPicking true 1-"',
     '--filter' => '"defaultArrayLength 2-"',
 );
