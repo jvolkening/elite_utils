@@ -185,12 +185,13 @@ sub convert {
         UNLINK => 0,
         SUFFIX => '.ready',
     );
-    say {$ready} "path=", $path;
-    say {$ready} "time=", localtime()->datetime;
-    say {$ready} "type=", $type;
-    say {$ready} "md5=",  $conv_digest;
-    say {$ready} "file=", $fn_conv;
-    say {$ready} "done=", '1';
+    say {$ready} "path=",     $path;
+    say {$ready} "time=",     localtime()->datetime;
+    say {$ready} "type=",     $type;
+    say {$ready} "md5=",      $conv_digest;
+    say {$ready} "file=",     $fn_conv;
+    say {$ready} "transfer=", 1;
+    say {$ready} "done=",     1;
     close $ready;
 
     logger( "Successfully converted $path$fn_raw" );

@@ -49,6 +49,7 @@ sub handle_new {
         }
     }
     return if (! $cfg->{done});
+    return if (! $cfg->{transfer});
 
     my $path = $cfg->{path};
     if (! defined $path) {
