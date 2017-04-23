@@ -12,8 +12,7 @@ use Linux::Inotify2;
 use Time::Piece;
 
 use constant IN  => "$ENV{HOME}/incoming";
-use constant OUT => "$ENV{HOME}/shared";
-use constant LOG => "$ENV{HOME}/transfer.log";
+use constant LOG => "$ENV{HOME}/galaxy.log";
 
 my $inotify = Linux::Inotify2->new()
     or die "Unable to create Inotify2 obj: $!\n";
@@ -49,7 +48,12 @@ sub handle_new {
         }
     }
     return if (! $cfg->{done});
-    return if (! $cfg->{transfer});
+
+    # don't bother if galaxy_user not defined
+    return if (! length $cfg->{galaxy_user});
+
+    # don't bother if not mzML
+    return if ($cfg->{type} ne 'mzml');
 
     my $path = $cfg->{path};
     if (! defined $path) {
@@ -86,34 +90,16 @@ sub handle_new {
         return;
     }
 
-    my $out_path = join '/',
-        OUT,
-        $path;
-
-    if (! -e $out_path) {
-        if (! make_path($out_path) ) {
-            logger( "ERROR creating path $out_path" );
-            return;
-        }
-    }
-    elsif (! -d $out_path) {
-        logger( "ERROR: $out_path exists but is not a directory" );
+    # Sanitize galaxy user name
+    my $user = $cfg->{galaxy_user};
+    if ($user =~ /[^\w\@\.\-]/) {
+        logger("Bad galaxy username: $user" );
         return;
     }
-
-    if (-e "$out_path$file") {
-        logger( "WARN: $out_path$file exists and won't overwrite" );
-        return;
-    }
-
-    say "cp ", IN, "/$path$file => ", "$out_path$file";
-
-    if (! copy( IN . "/$path$file" => "$out_path$file" ) ) {
-        logger( "ERROR copying $file: $!" );
-        return;
-    }
-        
-    logger( "Successfully transfered $path$file" );
+      
+    #-----------------------------#
+    #TODO: Do Galaxy upload here
+    #-----------------------------#
     
 }
 

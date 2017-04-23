@@ -20,27 +20,39 @@ my $DEFAULT_USER = 'other';
 my $EXTRA = 'Orbi_data';
 
 my $fn_raw;
+my $raw;
 my $mzml;
 my $mgf;
+my $galaxy;
 
 GetOptions(
-    'raw=s'  => \$fn_raw,
-    'mzml'   => \$mzml,
-    'mgf'    => \$mgf,
+    'in=s'          => \$fn_raw,
+    'raw'           => \$raw,
+    'mzml'          => \$mzml,
+    'mgf'           => \$mgf,
+    'galaxy_user=s' => \$galaxy,
 ) or die "ERROR parsing command line: $@\n";
 
 die "ERROR: No such RAW file or file not readable\n"
     if (! -r $fn_raw);
 
-my ($filename, $head_mzml, $head_mgf) = parse_raw($fn_raw);
+my ($filename, $head_raw, $head_mzml, $head_mgf, $head_galaxy) = parse_raw($fn_raw);
+
+$raw  = defined $raw      ? $raw
+      : length  $head_raw ? $head_raw
+      : 0;
 
 $mzml = defined $mzml      ? $mzml
-      : defined $head_mzml ? $head_mzml
+      : length  $head_mzml ? $head_mzml
       : 0;
 
 $mgf  = defined $mgf      ? $mgf
-      : defined $head_mgf ? $head_mgf
+      : length  $head_mgf ? $head_mgf
       : 0;
+
+$galaxy = defined $galaxy ? $galaxy
+        : length $head_galaxy ? $head_galaxy
+        : '';
 
 my ($base, $path, $suff) = fileparse( abs_path($fn_raw) );
 
@@ -61,6 +73,7 @@ if (! -e $out_path) {
 # make sure values of $mzml and $mgf are numeric
 $mzml = $mzml ? 1 : 0;
 $mgf  = $mgf  ? 1 : 0;
+$raw  = $raw  ? 1 : 0;
 
 die "ERROR: $fn_dest exists and won't overwrite\n"
     if (-e $fn_dest);
@@ -84,15 +97,17 @@ my $ready  = File::Temp->new(
     UNLINK => 0,
     SUFFIX => '.ready',
 );
-say {$ready} "path=", $path;
-say {$ready} "time=", localtime()->datetime;
-say {$ready} "mzml=", $mzml;
-say {$ready} "mgf=",  $mgf;
-say {$ready} "type=", 'raw';
-say {$ready} "md5=",  $dig->hexdigest;
-say {$ready} "size=", $size;
-say {$ready} "file=", $base;
-say {$ready} "done=", '1';
+say {$ready} "path=",        $path;
+say {$ready} "time=",        localtime()->datetime;
+say {$ready} "mzml=",        $mzml;
+say {$ready} "mgf=",         $mgf;
+say {$ready} "type=",        'raw';
+say {$ready} "md5=",         $dig->hexdigest;
+say {$ready} "size=",        $size;
+say {$ready} "file=",        $base;
+say {$ready} "transfer=",    $raw;
+say {$ready} "galaxy_user=", $galaxy;
+say {$ready} "done=",        '1';
 
 close $ready;
 
@@ -121,6 +136,7 @@ sub parse_raw {
     my $user_1    = $fields[ 4];
     my $user_2    = $fields[ 5];
     my $user_3    = $fields[ 6];
+    my $user_4    = $fields[ 7];
     my $filename  = $fields[11];
     my $filepath  = $fields[12];
 
@@ -128,7 +144,7 @@ sub parse_raw {
     die "Parsed filename not found\n"
         if (! -e $filename);
 
-    return ($filename, $user_1, $user_2);
+    return ($filename, $user_1, $user_2, $user_3, $user_4);
 
 }
 
