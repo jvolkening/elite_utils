@@ -10,10 +10,15 @@ use File::Copy qw/copy/;
 use File::Path qw/make_path/;
 use Linux::Inotify2;
 use Time::Piece;
+use Net::SMTP;
+use Net::Domain qw/hostfqdn/;
 
 use constant IN  => "$ENV{HOME}/incoming";
 use constant OUT => "$ENV{HOME}/shared";
 use constant LOG => "$ENV{HOME}/transfer.log";
+
+my $send_mail = 1;
+my $admin_mail = 'volkening@wisc.edu';
 
 my $inotify = Linux::Inotify2->new()
     or die "Unable to create Inotify2 obj: $!\n";
@@ -119,13 +124,38 @@ sub handle_new {
 
 sub logger {
 
-    my ($msg) = @_;
+    my ($msg, $email) = @_;
 
     open my $log, '>>', LOG
         or die "ERROR: failed to open log for writing: $!\n";
-    say {$log} join "\t",
+    $msg =  join "\t",
         localtime()->datetime(),
         $msg;
+
+    say {$log} $msg;
+
+    if ($send_mail) {
+
+        $email //= $admin_mail;
+
+        my $sender = "thermo_watcher@" . hostfqdn();
+
+        my $smtp = Net::SMTP->new('localhost','Debug'=>0)
+            or return;
+        $smtp->mail($sender);
+        $smtp->to($email);
+
+        $smtp->data();
+        $smtp->datasend("To: $email\n");
+        $smtp->datasend("From: $sender\n");
+        $smtp->datasend("Subject: thermo_watcher notification\n");
+        $smtp->datasend("\n");
+        $smtp->datasend($msg);
+        $smtp->dataend();
+
+        $smtp->quit();
+
+    }
 
 }
 
