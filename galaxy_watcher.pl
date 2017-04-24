@@ -4,15 +4,18 @@ use strict;
 use warnings;
 use 5.012;
 
+use Bio::Galaxy::API;
 use Config::Tiny;
 use Digest::MD5;
 use File::Copy qw/copy/;
 use File::Path qw/make_path/;
 use Linux::Inotify2;
 use Time::Piece;
+use List::Util qw/first/;
 
 use constant IN  => "$ENV{HOME}/incoming";
 use constant LOG => "$ENV{HOME}/galaxy.log";
+use constant MAX_TRIES => 6;
 
 my $inotify = Linux::Inotify2->new()
     or die "Unable to create Inotify2 obj: $!\n";
@@ -49,11 +52,21 @@ sub handle_new {
     }
     return if (! $cfg->{done});
 
-    # don't bother if galaxy_user not defined
-    return if (! length $cfg->{galaxy_user});
+    my $user = $cfg->{galaxy_user};
 
-    # don't bother if not mzML
-    return if ($cfg->{type} ne 'mzml');
+    # don't bother if galaxy_user not defined
+    return if (! defined $user || ! length $user);
+
+    # Sanitize galaxy user name
+    if ($user =~ /[^\w\@\.\-]/) {
+        logger("ERROR: Bad galaxy username: $user" );
+        return;
+    }
+
+    my $workflow = $cfg->{galaxy_workflow};
+
+    # don't bother if no workflow defined
+    return if (! defined $workflow || ! length $workflow);
 
     my $path = $cfg->{path};
     if (! defined $path) {
@@ -80,26 +93,46 @@ sub handle_new {
         my $digest = Digest::MD5->new();
         $digest->addfile($input);
         if ($digest->hexdigest() ne $md5) {
-            logger( "Bad digest for $file" );
+            logger( "ERROR: Bad digest for $file" );
             return;
         }
 
     }
     else {
-        logger("Error opening file " . IN . "/$file: $!" );
+        logger("ERROR opening file " . IN . "/$file: $!" );
         return;
     }
 
-    # Sanitize galaxy user name
-    my $user = $cfg->{galaxy_user};
-    if ($user =~ /[^\w\@\.\-]/) {
-        logger("Bad galaxy username: $user" );
-        return;
-    }
       
     #-----------------------------#
     #TODO: Do Galaxy upload here
     #-----------------------------#
+
+    my $dataset = galaxy_upload(
+        $user,
+        $path,
+        $file,
+    );
+    if (defined $dataset) {
+        logger("Successfully uploaded file $file to $user:$path");
+    }
+    else {
+        return;
+    }
+
+    # 'upload' workflow is special case and not actual workflow name
+    return if ($workflow =~ /^upload$/i);
+
+    my $ok = galaxy_run(
+        $user,
+        $workflow,
+        $dataset,
+    );
+    if ($ok) {
+        logger("Successfully submitted $file to workflow $user:$workflow");
+    }
+       
+    return;
     
 }
 
@@ -115,3 +148,92 @@ sub logger {
 
 }
 
+sub galaxy_upload {
+
+    my ($user, $path, $file) = @_;
+
+    my $ua = Bio::Galaxy::API->new(
+        url => 'http://localhost:8080',
+        check_secure => 0,
+    );
+        
+    my $lib = first {
+        $_->name() eq $user
+    } $ua->libraries;
+
+    if (! defined $lib) {
+        logger("ERROR: No personal library found for $user");
+        return undef;
+    }
+
+    my $parent = $lib->add_folder(
+        path => 'elite_data',
+    );
+    if (! defined $parent) {
+        logger("ERROR: Failed to add/find upload folder for $user");
+        return undef;
+    }
+
+    my $dataset = $lib->add_file(
+        path   => "$path$file",
+        file   => IN . "/$path$file",
+        parent => $parent->id,
+    );
+    if (! defined $dataset) {
+        logger("ERROR: Failed to upload file $file for $user");
+        return undef;
+    }
+    elsif ($dataset == 0) {
+        logger("ERROR: file $file already exists on Galaxy for $user");
+        return undef;
+    }
+
+    return $dataset;
+
+}
+
+sub galaxy_run {
+
+    my ($user, $workflow, $dataset) = @_;
+
+    my $ua = Bio::Galaxy::API->new(
+        url => 'http://localhost:8080',
+        check_secure => 0,
+    );
+
+    my $wf = first {
+        lc( $_->name() ) eq lc( $workflow )
+    } $ua->workflows;
+
+    if (! defined $wf) {
+        logger("ERROR: No workflow named $workflow found for $user");
+        return 0;
+    }
+
+    my $data_name = $dataset->name;
+
+    my $invoc = $wf->run(
+        history     => "workflow \"$workflow\" on \"$data_name\"",
+        ds_map      => {
+            0 => {
+                id => $dataset->id,
+                src => 'ld'
+            },
+        }
+    );
+
+    if (! defined $invoc) {
+        logger("ERROR: Failed to invoke $workflow on $data_name for $user");
+        return 0;
+    }
+
+    for (1..MAX_TRIES) {
+        return 1 if ($invoc->{state} eq 'scheduled');
+        sleep 10;
+        $invoc->update();
+    }
+
+    logger("ERROR: Timeout waiting for $workflow (on $data_name for $user");
+    return 0;
+
+}
