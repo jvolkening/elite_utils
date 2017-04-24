@@ -123,9 +123,9 @@ sub process {
         next LOOP;
     }
 
-    convert( $fn_raw, 'mzml', 'mzML', $path, \@msconvert_mzml_args )
+    convert( $fn_raw, $cfg, 'mzml', 'mzML', $path, \@msconvert_mzml_args )
         if ($mzml);
-    convert( $fn_raw, 'mgf', 'mgf', $path, \@msconvert_mgf_args )
+    convert( $fn_raw, $cfg, 'mgf', 'mgf', $path, \@msconvert_mgf_args )
         if ($mgf);
 
   }
@@ -147,7 +147,7 @@ sub logger {
 
 sub convert {
 
-    my ($fn_raw, $type, $suffix, $path, $arg_ref) = @_;
+    my ($fn_raw, $cfg, $type, $suffix, $path, $arg_ref) = @_;
 
     my $fn_conv = basename($fn_raw);
     $fn_conv =~ s/\.raw$/\.$suffix/i;
@@ -184,12 +184,19 @@ sub convert {
         UNLINK => 0,
         SUFFIX => '.ready',
     );
+
+    my @pass_thru = qw/ galaxy_user galaxy_workflow /;
     say {$ready} "path=",     $path;
     say {$ready} "time=",     localtime()->datetime;
     say {$ready} "type=",     $type;
     say {$ready} "md5=",      $conv_digest;
     say {$ready} "file=",     $fn_conv;
     say {$ready} "transfer=", 1;
+
+    for (grep {defined $cfg->{$_}} @pass_thru) {
+        say {$ready} "$_=", $cfg->{$_};
+    }
+        
     say {$ready} "done=",     1;
     close $ready;
 
