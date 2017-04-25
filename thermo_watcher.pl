@@ -6,25 +6,38 @@ use 5.012;
 
 use Config::Tiny;
 use Digest::MD5;
+use Email::Valid;
 use File::Copy qw/copy/;
 use File::Path qw/make_path/;
+use Getopt::Long;
 use Linux::Inotify2;
-use Time::Piece;
-use Net::SMTP;
 use Net::Domain qw/hostfqdn/;
+use Net::SMTP;
+use Time::Piece;
 
-use constant IN  => "$ENV{HOME}/incoming";
-use constant OUT => "$ENV{HOME}/shared";
-use constant LOG => "$ENV{HOME}/transfer.log";
+my $DIR_IN  = "$ENV{HOME}/incoming";
+my $DIR_OUT = "$ENV{HOME}/shared";
+my $LOGFILE = "$ENV{HOME}/transfer.log";
+my $ADMIN_EMAIL;
 
-my $send_mail = 1;
-my $admin_mail = 'volkening@wisc.edu';
+GetOptions(
+    'admin_email=s' => \$ADMIN_EMAIL,
+    'dir_in=s'      => \$DIR_IN,
+    'dir_out=s'     => \$DIR_OUT,
+    'logfile=s'     => \$LOGFILE,
+) or die "Error parsing options: $@\n";
+
+die "Admin email not valid!"
+    if ( ! Email::Valid->address($ADMIN_EMAIL) );
+
+#----------------------------------------------------------------------------#
+#----------------------------------------------------------------------------#
 
 my $inotify = Linux::Inotify2->new()
     or die "Unable to create Inotify2 obj: $!\n";
 
 $inotify->watch(
-    IN,
+    $DIR_IN,
     IN_MOVED_TO|IN_CLOSE_WRITE,
     \&handle_new,
 );
@@ -49,76 +62,121 @@ sub handle_new {
             sleep 2;
         }
         else {
-            logger( "ERROR: failed to parse ready file $fn" );
+            logger(
+                "ERROR: failed to parse ready file $fn",
+                $ADMIN_EMAIL,
+            );
             return;
         }
     }
     return if (! $cfg->{done});
     return if (! $cfg->{transfer});
 
+    my $email
+        = length $cfg->{email}       ? $cfg->{email}
+        : length $cfg->{galaxy_user} ? $cfg->{galaxy_user}
+        : undef;
+
+    if (defined $email && ! Email::Valid->address($email)) {
+        logger(
+            "User provided invalid email address ($email)",
+            $ADMIN_EMAIL,
+        );
+    }
+
     my $path = $cfg->{path};
-    if (! defined $path) {
-        logger( "ERROR: no path defined in $fn" );
+    if (! length $path) {
+        logger(
+            "ERROR: no path defined in $fn",
+            $ADMIN_EMAIL,
+        );
         return;
     }
     die "No backtracking allowed in path\n"
         if ($path =~ /\.\./);
 
     my $file = $cfg->{file};
-    if (! defined $file) {
-        logger( "ERROR: no file defined in $fn" );
+    if (! length $file) {
+        logger(
+            "ERROR: no file defined in $fn",
+            $ADMIN_EMAIL,
+        );
         return;
     }
 
     if ($file =~ /[\\\/\&\|\;]/) {
-        logger( "ERROR: invalid filename $file" );
+        logger(
+            "ERROR: invalid filename $file",
+            $ADMIN_EMAIL,
+        );
         return;
     }
         
     my $md5 = $cfg->{md5};
-    if (open my $input, '<:raw', IN . "/$path$file") {
+    if (open my $input, '<:raw', $DIR_IN . "/$path$file") {
 
         my $digest = Digest::MD5->new();
         $digest->addfile($input);
         if ($digest->hexdigest() ne $md5) {
-            logger( "Bad digest for $file" );
+            logger(
+                "Bad digest for $file",
+                $ADMIN_EMAIL,
+            );
             return;
         }
 
     }
     else {
-        logger("Error opening file " . IN . "/$file: $!" );
+        logger(
+            "Error opening file " . $DIR_IN . "/$file: $!",
+            $ADMIN_EMAIL,
+        );
         return;
     }
 
     my $out_path = join '/',
-        OUT,
+        $DIR_OUT,
         $path;
 
     if (! -e $out_path) {
         if (! make_path($out_path) ) {
-            logger( "ERROR creating path $out_path" );
+            logger(
+                "ERROR creating path $out_path",
+                $ADMIN_EMAIL,
+            );
             return;
         }
     }
     elsif (! -d $out_path) {
-        logger( "ERROR: $out_path exists but is not a directory" );
+        logger(
+            "ERROR: $out_path exists but is not a directory",
+            $ADMIN_EMAIL,
+        );
         return;
     }
 
     if (-e "$out_path$file") {
-        logger( "WARN: $out_path$file exists and won't overwrite" );
+        logger(
+            "WARNING: $out_path$file exists and will not be overwritten",
+            $email,
+        );
         return;
     }
 
-    say "cp ", IN, "/$path$file => ", "$out_path$file";
+    say "cp ", $DIR_IN, "/$path$file => ", "$out_path$file";
 
-    if (! copy( IN . "/$path$file" => "$out_path$file" ) ) {
-        logger( "ERROR copying $file: $!" );
+    if (! copy( $DIR_IN . "/$path$file" => "$out_path$file" ) ) {
+        logger(
+            "ERROR copying $file: $!",
+            $ADMIN_EMAIL,
+        );
         return;
     }
         
-    logger( "Successfully transfered $path$file" );
+    logger(
+        "Successfully transfered $path$file",
+        $email,
+    );
     
 }
 
@@ -126,36 +184,45 @@ sub logger {
 
     my ($msg, $email) = @_;
 
-    open my $log, '>>', LOG
-        or die "ERROR: failed to open log for writing: $!\n";
     $msg =  join "\t",
         localtime()->datetime(),
         $msg;
 
+    # print to log
+
+    open my $log, '>>', $LOGFILE
+        or die "ERROR: failed to open log for writing: $!\n";
     say {$log} $msg;
+    close $log;
 
-    if ($send_mail) {
 
-        $email //= $admin_mail;
+    # send email if any valid addresses given
 
-        my $sender = "thermo_watcher@" . hostfqdn();
+    $email //= $ADMIN_EMAIL;
 
-        my $smtp = Net::SMTP->new('localhost','Debug'=>0)
-            or return;
-        $smtp->mail($sender);
-        $smtp->to($email);
+    return if (! defined $email);
+    
+    my $cc = $ADMIN_EMAIL ne $email
+        ? $ADMIN_EMAIL
+        : undef;
+        
+    my $sender = "thermo_watcher@" . hostfqdn();
 
-        $smtp->data();
-        $smtp->datasend("To: $email\n");
-        $smtp->datasend("From: $sender\n");
-        $smtp->datasend("Subject: thermo_watcher notification\n");
-        $smtp->datasend("\n");
-        $smtp->datasend($msg);
-        $smtp->dataend();
+    my $smtp = Net::SMTP->new('localhost','Debug'=>0)
+        or return;
+    $smtp->mail($sender);
+    $smtp->to($email);
+    $smtp->bcc($cc) if (defined $cc);
 
-        $smtp->quit();
+    $smtp->data();
+    $smtp->datasend("To: $email\n");
+    $smtp->datasend("From: $sender\n");
+    $smtp->datasend("Subject: thermo_watcher notification\n");
+    $smtp->datasend("\n");
+    $smtp->datasend($msg);
+    $smtp->dataend();
 
-    }
+    $smtp->quit();
 
 }
 
