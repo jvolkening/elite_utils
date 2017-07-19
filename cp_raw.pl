@@ -56,9 +56,9 @@ $galaxy = defined $galaxy ? $galaxy
 
 my ($base, $path, $suff) = fileparse( abs_path($fn_raw) );
 
-$path =~ s/^[A-Z]\:[\\\/]//
+$path =~ s/^[A-Z]\:[\\\/]//i
    or die "ERROR: RAW file path must be absolute\n";
-$path =~ s/$EXTRA[\\\/]//;
+$path =~ s/$EXTRA[\\\/]//i;
 
 my $out_path = "$DEST_DIR/$path";
 my $fn_dest  = "$out_path$base";
