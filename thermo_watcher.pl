@@ -128,7 +128,7 @@ sub handle_new {
     }
     else {
         logger(
-            "Error opening file " . $DIR_IN . "/$file: $!",
+            "Error opening file " . $DIR_IN . "/$path$file: $!",
             $ADMIN_EMAIL,
         );
         return;
@@ -174,8 +174,7 @@ sub handle_new {
     }
         
     logger(
-        "Successfully transfered $path$file",
-        $email,
+        "Successfully transferred $path$file",
     );
     
 }
@@ -197,8 +196,6 @@ sub logger {
 
 
     # send email if any valid addresses given
-
-    $email //= $ADMIN_EMAIL;
 
     return if (! defined $email);
     
