@@ -128,7 +128,7 @@ sub handle_new {
     }
     else {
         logger(
-            "Error opening file " . $DIR_IN . "/$file: $!",
+            "Error opening file " . $DIR_IN . "/$path$file: $!",
             $ADMIN_EMAIL,
         );
         return;
@@ -174,7 +174,7 @@ sub handle_new {
     }
         
     logger(
-        "Successfully transfered $path$file",
+        "Successfully transferred $path$file",
         $email,
     );
     
