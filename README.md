@@ -1,4 +1,4 @@
-= elite_utils
+# elite_utils
 
 This repository contains various tools for automated post-processing of data from an Orbitrap Elite.
 These tools are undergoing active development, are undocumented and are **NOT STABLE**.
