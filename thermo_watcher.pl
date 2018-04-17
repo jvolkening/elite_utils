@@ -175,7 +175,6 @@ sub handle_new {
         
     logger(
         "Successfully transferred $path$file",
-        $email,
     );
     
 }
@@ -197,8 +196,6 @@ sub logger {
 
 
     # send email if any valid addresses given
-
-    $email //= $ADMIN_EMAIL;
 
     return if (! defined $email);
     

@@ -1,0 +1,14 @@
+[Unit]
+Description="Thermo watcher"
+
+[Service]
+ExecStart=/opt/bin/thermo_watcher.pl --admin_email volkening@wisc.edu
+User=thermo
+Group=thermo
+WorkingDirectory=/home/thermo/
+Restart=on-abort
+RestartSec=30
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
