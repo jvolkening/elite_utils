@@ -15,9 +15,13 @@ use File::Temp;
 use threads;
 use Thread::Queue;
 use Time::Piece;
-use Win32::ChangeNotify;
+
+use constant POLL_INTERVAL => 60; #seconds
+use constant WAIT_TRIES    => 10;
+use constant WAIT_TIME     => 2;  #seconds
 
 my $BASE = $ARGV[0] // "T:/";
+
 
 # configure msconvert
 my @msconvert_mzml_args = (
@@ -40,9 +44,7 @@ my $LOG = "$BASE/convert.log";
 my $queue  = Thread::Queue->new;
 my $worker = threads->create(\&process);
 
-my $notify = Win32::ChangeNotify->new( $TARGET, 0, 'FILE_NAME' );
-
-# track previously seen filenames
+# %last is used to track previously seen files
 my %last;
 @last{ glob "$TARGET/*.ready" } = ();
 
@@ -53,24 +55,20 @@ print "msconvert monitor running (do not close)...\n";
 LOOP:
 while (1) {
 
-    my $r = $notify->wait( 10_000 );
-    exit if (! defined $r || $r < 0);
-    next if ($r != 1);
-    $notify->reset;
+    my @current = glob "$TARGET/*.ready";
 
-    # if we get here, something has changed
-    my @files = glob "$TARGET/*.ready";
-    my @new = ();
-    if ( scalar @files > scalar keys %last ) {
-        my %temp;
-        @temp{ @files } = ();
-        delete @temp{ keys %last };
-        @new = keys %temp;
-    }
+    my %temp;
+    @temp{ @current } = ();
+    delete @temp{ keys %last };
+    my @new = keys %temp;
+
+    $queue->enqueue( @new )
+        if (scalar @new);
+
     undef %last;
-    @last{ @files } = ();
+    @last{ @current } = ();
 
-    $queue->enqueue( @new );
+    sleep POLL_INTERVAL;
 
 }
 
@@ -80,10 +78,10 @@ sub process {
   while (defined( my $fn_new = $queue->dequeue )) {
 
     my $cfg;
-    for (1..10) {
+    for (1..WAIT_TRIES) {
         $cfg = Config::Tiny->read($fn_new)->{_};
         last if ($cfg->{done});
-        sleep 2;
+        sleep WAIT_TIME;
     }
     next LOOP if (! $cfg->{done});
 
