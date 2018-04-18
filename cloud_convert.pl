@@ -6,7 +6,7 @@ use 5.012;
 
 use Config::Tiny;
 use File::HomeDir;
-use Net::Amazon::EC2;
+use Paws;
 use Net::Rmsconvert;
 
 use constant STATE_PENDING => 0;
@@ -46,12 +46,7 @@ die "No appropriate SSL cert found\n"
 die "No appropriate SSL CA found\n"
     if (! defined $rmsc->{ssl_ca});
 
-my $ua = Net::Amazon::EC2->new(
-    AWSAccessKeyId  => $cred->{rmsconvert}->{aws_access_key_id},
-    SecretAccessKey => $cred->{rmsconvert}->{aws_secret_access_key},
-    region          => $conf->{rmsconvert}->{region},
-    ssl             => 1,
-);
+my $ua = Paws->service('EC2', region => $conf->{rmsconvert}->{region});
 
 my $instance = run_instance();
 my $server = $instance->dns_name // die "unknown DNS name";
@@ -65,15 +60,15 @@ sub terminate_instance {
 
     say "Terminating instance...";
 
-    my $states = $ua->terminate_instances(
-        InstanceId => $inst->instance_id
-    );
+    my $states = $ua->TerminateInstances(
+        InstanceIds => [$inst->InstanceId]
+    )->TerminatingInstances();
 
     my $n_states = scalar @{$states};
     die "Expected one state and got $n_states"
         if ($n_states != 1);
 
-    if ($states->[0]->current_state()->code > STATE_RUNNING) {
+    if ($states->[0]->CurrentState()->Code > STATE_RUNNING) {
         say "instance terminated succcessfully";
         $instance = undef;
         return 1;
@@ -87,31 +82,31 @@ sub run_instance {
 
     say "Booting instance...";
 
-    my $desc = $ua->run_instances(
+    my $reserv = $ua->RunInstances(
         ImageId => $rmsc->{image_id},
         MinCount => 1,
         MaxCount => 1,
-        SecurityGroupId => $rmsc->{security_group},
+        SecurityGroupIds => [$rmsc->{security_group}],
         InstanceType => $rmsc->{instance_type},
     );
 
-    my $inst = validate_instance($desc);
+    my $inst = validate_instance($reserv);
 
     # loop until instance is no longer pending or we time out
     my $elapsed = 0;
-    while ($inst->instance_state()->code == STATE_PENDING && $elapsed <= $max_wait) {
+    while ($inst->State()->Code == STATE_PENDING && $elapsed <= $max_wait) {
         say "  waiting...";
         sleep $poll_int;
         $elapsed += $poll_int;
-        $desc = $ua->describe_instances(
-            InstanceId => $inst->instance_id,
-        );
-        $inst = validate_instance($desc);
+        $reserv = $ua->DescribeInstances(
+            InstanceIds => [$inst->InstanceId]
+        )->Reservations()->[0];
+        $inst = validate_instance($reserv);
     }
 
-    if ($inst->instance_state()->code != STATE_RUNNING) {
+    if ($inst->State()->Code != STATE_RUNNING) {
         warn "Instance failed to run in time allotted\n";
-        warn "Final state was " . $inst->instance_state()->name . "\n";
+        warn "Final state was " . $inst->State()->name . "\n";
         exit 1;
     }
 
@@ -124,17 +119,17 @@ sub validate_instance {
     # currently, just checks that a single instance is present and returns
     # that instance
 
-    my ($desc) = @_;
+    my ($reserv) = @_;
 
     # flatten array ref if given
-    if (ref($desc) eq 'ARRAY') {
-        my $n_desc = scalar @{$desc};
-        die "Expected 1 description object and got $n_desc"
-            if ($n_desc != 1);
-        $desc = $desc->[0];
+    if (ref($reserv) eq 'ARRAY') {
+        my $n_reserv = scalar @{$reserv};
+        die "Expected 1 reservation object and got $n_reserv"
+            if ($n_reserv != 1);
+        $reserv = $reserv->[0];
     }
 
-    my @instances = @{ $desc->instances_set };
+    my @instances = @{ $reserv->Instances };
     my $n_inst = scalar @instances;
     die "Expected exactly one running instance, got $n_inst"
         if ($n_inst != 1);
