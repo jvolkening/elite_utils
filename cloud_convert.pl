@@ -55,15 +55,18 @@ my $ua = Paws->service('EC2', region => $conf->{rmsconvert}->{region});
 
 my $instance;
 run_instance();
-my $server = $instance->dns_name // die "unknown DNS name";
-for my $i (1..$max_try) {
+my $server = $instance->PublicDnsName // die "unknown DNS name";
+my $success = 0;
+my $i = $max_try;
+while ($i > 0) {
     try {
         convert($fn_in, $fn_out, $server);
-        last;
+        $i = 0;
     }
     catch {
         warn "Conversion try $i (of $max_try max) failed\n";
         sleep 60;
+        --$i;
     }
 }
 my $ret = terminate_instance($instance);
