@@ -8,14 +8,19 @@ use Config::Tiny;
 use File::HomeDir;
 use Paws;
 use Net::Rmsconvert;
+use Try::Tiny;
 
 use constant STATE_PENDING => 0;
 use constant STATE_RUNNING => 16;
+
+# always run END block
+$SIG{TERM} = $SIG{INT} = $SIG{QUIT} = $SIG{HUP} = sub { die; };
 
 my ($fn_in, $fn_out) = @ARGV;
 
 my $poll_int = 10;
 my $max_wait = 300; # 5 minutes
+my $max_try  = 5;
 
 my $home = File::HomeDir->my_home;
 
@@ -48,9 +53,19 @@ die "No appropriate SSL CA found\n"
 
 my $ua = Paws->service('EC2', region => $conf->{rmsconvert}->{region});
 
-my $instance = run_instance();
+my $instance;
+run_instance();
 my $server = $instance->dns_name // die "unknown DNS name";
-convert($fn_in, $fn_out, $server);
+for my $i (1..$max_try) {
+    try {
+        convert($fn_in, $fn_out, $server);
+        last;
+    }
+    catch {
+        warn "Conversion try $i (of $max_try max) failed\n";
+        sleep 60;
+    }
+}
 my $ret = terminate_instance($instance);
 
 
@@ -90,27 +105,25 @@ sub run_instance {
         InstanceType => $rmsc->{instance_type},
     );
 
-    my $inst = validate_instance($reserv);
+    $instance = validate_instance($reserv);
 
     # loop until instance is no longer pending or we time out
     my $elapsed = 0;
-    while ($inst->State()->Code == STATE_PENDING && $elapsed <= $max_wait) {
+    while ($instance->State()->Code == STATE_PENDING && $elapsed <= $max_wait) {
         say "  waiting...";
         sleep $poll_int;
         $elapsed += $poll_int;
         $reserv = $ua->DescribeInstances(
-            InstanceIds => [$inst->InstanceId]
+            InstanceIds => [$instance->InstanceId]
         )->Reservations()->[0];
-        $inst = validate_instance($reserv);
+        $instance = validate_instance($reserv);
     }
 
-    if ($inst->State()->Code != STATE_RUNNING) {
+    if ($instance->State()->Code != STATE_RUNNING) {
         warn "Instance failed to run in time allotted\n";
-        warn "Final state was " . $inst->State()->name . "\n";
+        warn "Final state was " . $instance->State()->name . "\n";
         exit 1;
     }
-
-    return $inst;
 
 }
 
@@ -140,6 +153,8 @@ sub validate_instance {
 
 sub convert {
 
+    say "Running rmsconvert";
+
     my ($fn_in, $fn_out, $server) = @_;
 
     my $ca = Net::Rmsconvert->new(
@@ -148,7 +163,10 @@ sub convert {
         timeout     => 50000,
         compression => 'gzip',
         params      => [
-            '--mgf',
+            '--mzML',
+            '--gzip',
+            '--numpressAll',
+            '--filter' => 'peakPicking true 1-',
         ],
         ssl_key => $rmsc->{ssl_key},
         ssl_crt => $rmsc->{ssl_crt},
