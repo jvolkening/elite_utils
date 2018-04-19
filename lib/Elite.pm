@@ -10,9 +10,18 @@ use Email::Valid;
 use File::Copy qw/copy/;
 use File::Path qw/make_path/;
 use Linux::Inotify2;
+use List::Util qw/any/;
 use Net::Domain qw/hostfqdn/;
 use Net::SMTP;
 use Time::Piece;
+use Try::Tiny;
+
+use Elite::Handler::Raw;
+use Elite::Handler::MzML;
+use Elite::Handler::MGF;
+use Elite::Handler::Notify;
+use Elite::Handler::GalaxyUpload;
+use Elite::Handler::GalaxyRun;
 
 use constant ERROR => 0;
 use constant WARN  => 1;
@@ -89,20 +98,22 @@ sub _handle_new {
         }
     }
     return if (! $cfg->{done});
-    return if (! $cfg->{transfer});
 
     # validate provided metadata
 
+    my @fmts = split /,\s*/, $cfg->{formats};
+
     for (qw/email galaxy_user/) {
-    if (defined $cfg->{$_} && ! Email::Valid->address($cfg->{$_})) {
-        $self->_log( WARN, "User provided invalid $_ address ($cfg->{$_})" );
+        if (defined $cfg->{$_} && ! Email::Valid->address($cfg->{$_})) {
+            $self->_log( WARN, "User provided invalid $_ address ($cfg->{$_})" );
+        }
     }
 
     if (! length $cfg->{path}) {
         $self->_log( ERROR, "No path defined in $fn" );
         return;
     }
-    if ($cfg->{path} =~ /\.\./);
+    if ($cfg->{path} =~ /\.\./) {
         $self->_log( ERROR, "No backtracking allowed in path for $fn" );
         return;
     }
@@ -132,31 +143,114 @@ sub _handle_new {
         return;
     }
     
-    my $out_path = "$self->{dir_out}/$self->{path}";
-    if (! -e $out_path) {
-        if (! make_path($out_path) ) {
-            $self->_log( ERROR, "Problem creating output path $out_path: $!" );
+    $cfg->{_output_path} = "$self->{dir_out}/$self->{path}";
+    if (! -e $cfg->{_output_path}) {
+        if (! make_path($cfg->{_output_path}) ) {
+            $self->_log( ERROR, "Problem creating output path $cfg->{_output_path}: $!" );
             return;
         }
     }
-    elsif (! -d $out_path) {
-        $self->_log( ERROR, "Output path $out_path exists but is not a directory" );
+    elsif (! -d $cfg->{_output_path}) {
+        $self->_log( ERROR, "Output path $cfg->{_output_path} exists but is not a directory" );
         return;
     }
 
-    $self->{_output_file} = "$out_path$self->{file}";
+    #------------------------------------------------------------------------#
+    # transfer RAW files
+    #------------------------------------------------------------------------#
 
-    if (-e $self->{_output_file}) {
-        $self->_log(ERROR, "File $self->{_output_file} exists and will not be overwritten" );
-        return;
+    if (any {$_ =~ /^raw$/i} @fmts) {
+        try {
+            Elite::Handler::Raw->run(
+                config  => $cfg,
+                archive => 0,
+            );
+            $self->_log( INFO, "Successfully transferred $cfg->{path}$cfg->{file}" );
+        }
+        catch {
+            $self->_log( INFO, "Failure transferring $cfg->{path}$cfg->{file}: $_" );
+        }
     }
 
-    if (! copy( $self->{_input_file} => $self->{_output_file} ) ) {
-        $self->_log( ERROR, "Failure copying $self->{file}: $!" );
-        return;
+    #------------------------------------------------------------------------#
+    # convert to MzML
+    #------------------------------------------------------------------------#
+
+    if (any {$_ =~ /^mzml$/i} @fmts) {
+        try {
+            Elite::Handler::MzML->run(
+                config  => $cfg,
+            );
+            $self->_log( INFO, "Successfully converted $cfg->{path}$cfg->{file} to MzML" );
+        }
+        catch {
+            $self->_log( INFO, "Failure converting $cfg->{path}$cfg->{file} to MzML: $_" );
+        }
     }
-        
-    $self->_log( INFO, "Successfully transferred $path$file" );
+
+    #------------------------------------------------------------------------#
+    # convert to MGF
+    #------------------------------------------------------------------------#
+
+    if (any {$_ =~ /^mgf$/i} @fmts) {
+        try {
+            Elite::Handler::MGF->run(
+                config  => $cfg,
+            );
+            $self->_log( INFO, "Successfully converted $cfg->{path}$cfg->{file} to MGF" );
+        }
+        catch {
+            $self->_log( INFO, "Failure converting $cfg->{path}$cfg->{file} to MGF: $_" );
+        }
+    }
+
+    #------------------------------------------------------------------------#
+    # send notifications
+    #------------------------------------------------------------------------#
+
+    if ($self->{notify}) {
+        try {
+            Elite::Handler::Notify->run(
+                config  => $cfg,
+            );
+            $self->_log( INFO, "Successfully converted $cfg->{path}$cfg->{file} to MGF" );
+        }
+        catch {
+            $self->_log( INFO, "Failure converting $cfg->{path}$cfg->{file} to MGF: $_" );
+        }
+    }
+
+    #------------------------------------------------------------------------#
+    # upload to galaxy
+    #------------------------------------------------------------------------#
+
+    if ($self->{galaxy_user}) {
+        try {
+            Elite::Handler::GalaxyUpload->run(
+                config  => $cfg,
+            );
+            $self->_log( INFO, "Successfully uploaded $cfg->{path}$cfg->{file} to Galaxy" );
+        }
+        catch {
+            $self->_log( INFO, "Failure uploading $cfg->{path}$cfg->{file} to Galaxy: $_" );
+        }
+    }
+
+    #------------------------------------------------------------------------#
+    # trigger workflow
+    #------------------------------------------------------------------------#
+
+    if ($self->{workflow}) {
+        try {
+            Elite::Handler::GalaxyRun->run(
+                config  => $cfg,
+            );
+            $self->_log( INFO, "Successfully ran workflow $cfg->{workflow} on $cfg->{file}" );
+        }
+        catch {
+            $self->_log( INFO, "Failure running workflow $cfg->{workflow} on $cfg->{file}: $_" );
+        }
+    }
     
 }
 
@@ -171,7 +265,7 @@ sub _log {
 
     # print to log
 
-    open my $log, '>>', $self->{log_file};
+    open my $log, '>>', $self->{log_file}
         or die "ERROR: failed to open log for writing: $!\n";
     say {$log} $msg;
     close $log;
@@ -201,3 +295,4 @@ sub _log {
 
 }
 
+1;
