@@ -26,7 +26,7 @@ my $workflow;
 
 GetOptions(
     'in=s'          => \$fn_raw,
-    'formats'       => \$formats,
+    'formats=s'     => \$formats,
     'notify=s'      => \$notify,
     'galaxy_user=s' => \$galaxy,
     'workflow=s'    => \$workflow,
@@ -43,7 +43,7 @@ my (
     $head_galaxy,
     $head_workflow,
     $other
-) = parse_raw($fn_raw);
+) = parse_raw_header($fn_raw);
 
 $formats  //= $head_formats;
 $notify   //= $head_notify;
@@ -52,8 +52,8 @@ $workflow //= $head_workflow;
 
 my ($base, $path, $suff) = fileparse( abs_path($fn_raw) );
 
-$path =~ s/^[A-Z]\:[\\\/]//i
-   or die "ERROR: RAW file path must be absolute\n";
+$path =~ s/^[A-Z]\:[\\\/]//i;
+   #or die "ERROR: RAW file path must be absolute\n";
 $path =~ s/$EXTRA[\\\/]//i;
 
 my $out_path = "$dest_dir/$path";
@@ -107,7 +107,7 @@ exit;
 
 
 
-sub parse_raw {
+sub parse_raw_header {
 
     my ($fn) = @_;
 
@@ -134,8 +134,8 @@ sub parse_raw {
     my $filepath  = $fields[12];
 
     $filename = "$filepath/" . basename($filename);
-    die "Parsed filename not found\n"
-        if (! -e $filename);
+    #die "Parsed filename not found\n"
+        #if (! -e $filename);
 
     return ($filename, $user_1, $user_2, $user_3, $user_4, $user_5);
 
