@@ -1,0 +1,16 @@
+bin/cloud_convert.pl
+bin/cp_raw.pl
+bin/galaxy_watcher.pl
+bin/glacier.dl.pl
+bin/glacier.paws.pl
+bin/glacier.ul.pl
+bin/msconvert_watcher.pl
+bin/new_user.pl
+bin/thermo_cleanup.pl
+bin/thermo_watcher.pl
+Build.PL
+lib/Elite.pm
+MANIFEST			This list of files
+new_user.template
+README.md
+thermo_watcher.service
