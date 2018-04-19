@@ -191,10 +191,11 @@ sub _handle_new {
 
     if (any {$_ =~ /^mzml$/i} @fmts) {
         try {
-            Elite::Handler::MzML->run(
+            my $fn = Elite::Handler::MzML->run(
                 config  => $cfg,
             );
             $self->_log( INFO, "Successfully converted $cfg->{path}$cfg->{file} to MzML" );
+            $cfg->{_mzml_file} = $fn;
         }
         catch {
             $self->_log( INFO, "Failure converting $cfg->{path}$cfg->{file} to MzML: $_" );

@@ -4,53 +4,14 @@ use strict;
 use warnings;
 use 5.012;
 
-use File::Copy qw/copy/;
+use parent 'Elite::Handler::Converter';
 
-sub run {
+sub suffix {return 'mgf'}
 
-    my ($class, %args) = @_;
-
-    $args{archive} //= 0;
-
-    for (qw/config archive/) {
-        die "Parameter $_ must be defined"
-            if (! defined $args{$_});
-    }
-
-    my $self = bless {%args} => $class;
-
-    $self->transfer;
-    $self->archive if ($self->{archive});
-
-    return 1;
-
-}
-
-sub transfer {
-
-    my ($self) = @_;
-
-    my $output_file = "$self->{_output_path}/$self->{file}";
-    
-    if (-e $output_file) {
-        die "Target $output_file exists and won't overwrite\n";
-     }
-
-     copy( $self->{_input_file} => $output_file )
-        or die "Error copying to $output_file: $!\n";
-
-    return 1;
-
-}
-
-sub archive {
-
-    my ($self) = @_;
-
-    #TODO: implement archiving to Glacier
-
-    return 1;
-
+sub params { return
+    [
+        '--mgf',
+    ];
 }
 
 1;
