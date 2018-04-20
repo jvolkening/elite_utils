@@ -66,7 +66,7 @@ while (my $r = read $fh_in, $buffer, $part_size) {
     my $range = 'bytes '
         . $range_start
         . '-'
-        . $total_read - 1;
+        . ($total_read - 1);
 
     my $resp = $ua->UploadMultipartPart(
         AccountId => '-',
