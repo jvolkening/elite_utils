@@ -120,6 +120,10 @@ sub _handle_new {
         }
     }
 
+    if ($cfg->{galaxy_user}) {
+        push @fmts, 'mzml';
+    }
+
     if (! length $cfg->{path}) {
         $self->_log( ERROR, "No path defined in $fn" );
         return;
@@ -154,7 +158,7 @@ sub _handle_new {
         return;
     }
    
-    if (length $cfg->{formats}) {
+    if (@fmts) {
         $cfg->{_output_path} = "$self->{dir_out}/$cfg->{path}";
         if (! -e $cfg->{_output_path}) {
             if (! make_path($cfg->{_output_path}) ) {

@@ -144,7 +144,7 @@ sub rmsconvert {
         }
         catch {
             my $t = MAX_TRY - $i + 1;
-            warn "Conversion try $i (of " . MAX_TRY . " max) failed\n";
+            warn "Conversion try $t (of " . MAX_TRY . " max) failed\n";
             sleep 60;
             --$i;
         }
