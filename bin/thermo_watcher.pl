@@ -15,6 +15,7 @@ my $SNS_REGION   = 'us-east-1';
 my $COUNTRY_CODE = '+1'; # default US
 my $MACHINE_NAME = 'Orbitrap Elite';
 my $ADMIN_EMAIL;
+my $VAULT_NAME;
 
 GetOptions(
     'admin_email=s'  => \$ADMIN_EMAIL,
@@ -25,6 +26,7 @@ GetOptions(
     'country_code=s' => \$COUNTRY_CODE,
     'aws_region=s'   => \$AWS_REGION,
     'sns_region=s'   => \$SNS_REGION,
+    'vault_name=s'   => \$VAULT_NAME,
 ) or die "Error parsing options: $@\n";
 
 die "Admin email not valid!"
@@ -39,6 +41,7 @@ my $handler = Elite->new(
     country_code => $COUNTRY_CODE,
     aws_region   => $AWS_REGION,
     sns_region   => $SNS_REGION,
+    vault_name   => $VAULT_NAME,
 );
 
 $handler->run();

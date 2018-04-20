@@ -7,17 +7,10 @@ use 5.012;
 use Config::Tiny;
 use File::HomeDir;
 use Net::Amazon::Glacier;
-use Net::Rmsconvert;
-use Digest::SHA qw/sha256/;
-
-require bytes;
 
 use constant MB => 1024**2;
 
 my ($fn_in, $v_name) = @ARGV;
-
-my $poll_int = 10;
-my $max_wait = 300; # 5 minutes
 
 my $home = File::HomeDir->my_home;
 
@@ -40,9 +33,7 @@ my $ua = Net::Amazon::Glacier->new(
 );
     
 
-my $part_size  =  4 * MB;
-my $block_size =  1 * MB;
-
+my $part_size =  4 * MB;
 my $file_size = -s $fn_in;
 
 open my $fh_in, '<:raw', $fn_in;

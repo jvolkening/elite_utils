@@ -10,9 +10,7 @@ sub run {
 
     my ($class, %args) = @_;
 
-    $args{archive} //= 0;
-
-    for (qw/config archive/) {
+    for (qw/config/) {
         die "Parameter $_ must be defined\n"
             if (! defined $args{$_});
     }
@@ -23,7 +21,6 @@ sub run {
     }
 
     $self->transfer;
-    $self->archive if ($self->{archive});
 
     return 1;
 
@@ -41,16 +38,6 @@ sub transfer {
 
      copy( $self->{_input_file} => $output_file )
         or die "Error copying to $output_file: $!\n";
-
-    return 1;
-
-}
-
-sub archive {
-
-    my ($self) = @_;
-
-    #TODO: implement archiving to Glacier
 
     return 1;
 

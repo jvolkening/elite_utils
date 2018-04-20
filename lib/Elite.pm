@@ -21,6 +21,7 @@ use Elite::Handler::MGF;
 use Elite::Handler::Notify;
 use Elite::Handler::GalaxyUpload;
 use Elite::Handler::GalaxyRun;
+use Elite::Handler::Glacier;
 
 use constant ERROR => 0;
 use constant WARN  => 1;
@@ -109,6 +110,7 @@ sub _handle_new {
     $cfg->{_aws_region}      = $self->{aws_region};
     $cfg->{_sns_region}      = $self->{sns_region};
     $cfg->{_machine_name}    = $self->{machine_name};
+    $cfg->{_vault_name}      = $self->{vault_name};
 
     # validate provided metadata
 
@@ -180,12 +182,27 @@ sub _handle_new {
         try {
             Elite::Handler::Raw->run(
                 config  => $cfg,
-                archive => 0,
             );
             $self->_log( INFO, "Successfully transferred $cfg->{path}$cfg->{file}" );
         }
         catch {
             $self->_log( ERROR, "Failure transferring $cfg->{path}$cfg->{file}: $_" );
+        }
+    }
+
+    #------------------------------------------------------------------------#
+    # archive to Glacier
+    #------------------------------------------------------------------------#
+
+    if ($self->{vault_name}) {
+        try {
+            my $ar_id = Elite::Handler::Glacier->run(
+                config  => $cfg,
+            );
+            $self->_log( INFO, "Successfully archived $cfg->{path}$cfg->{file} to Glacier archive $ar_id" );
+        }
+        catch {
+            $self->_log( ERROR, "Failure archiving $cfg->{path}$cfg->{file} to Glacier: $_" );
         }
     }
 

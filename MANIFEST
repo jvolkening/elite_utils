@@ -10,6 +10,14 @@ bin/thermo_cleanup.pl
 bin/thermo_watcher.pl
 Build.PL
 lib/Elite.pm
+lib/Elite/Handler/Converter.pm
+lib/Elite/Handler/GalaxyRun.pm
+lib/Elite/Handler/GalaxyUpload.pm
+lib/Elite/Handler/Glacier.pm
+lib/Elite/Handler/MGF.pm
+lib/Elite/Handler/MzML.pm
+lib/Elite/Handler/Notify.pm
+lib/Elite/Handler/Raw.pm
 MANIFEST			This list of files
 new_user.template
 README.md
