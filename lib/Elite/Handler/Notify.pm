@@ -128,12 +128,11 @@ sub _send_email {
         or return 0;
     $smtp->mail($sender);
     $smtp->to($recipient);
-    $smtp->subject($subject);
 
     $smtp->data();
     $smtp->datasend("To: $recipient\n");
     $smtp->datasend("From: $sender\n");
-    $smtp->datasend("Subject: Orbitrap notification\n");
+    $smtp->datasend("Subject: $subject\n");
     $smtp->datasend("\n");
     $smtp->datasend($msg);
     $smtp->dataend();
