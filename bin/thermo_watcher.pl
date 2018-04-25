@@ -14,6 +14,7 @@ my $AWS_REGION   = 'us-east-2';
 my $SNS_REGION   = 'us-east-1';
 my $COUNTRY_CODE = '+1'; # default US
 my $MACHINE_NAME = 'Orbitrap Elite';
+my $GALAXY_URL   = 'http://localhost:8080';
 my $ADMIN_EMAIL;
 my $VAULT_NAME;
 
@@ -27,10 +28,8 @@ GetOptions(
     'aws_region=s'   => \$AWS_REGION,
     'sns_region=s'   => \$SNS_REGION,
     'vault_name=s'   => \$VAULT_NAME,
+    'galaxy_url=s'   => \$GALAXY_URL,
 ) or die "Error parsing options: $@\n";
-
-die "Admin email not valid!"
-    if ( ! Email::Valid->address($ADMIN_EMAIL) );
 
 my $handler = Elite->new(
     dir_in       => $DIR_IN,
@@ -42,6 +41,7 @@ my $handler = Elite->new(
     aws_region   => $AWS_REGION,
     sns_region   => $SNS_REGION,
     vault_name   => $VAULT_NAME,
+    galaxy_url   => $GALAXY_URL,
 );
 
 $handler->run();

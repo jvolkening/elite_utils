@@ -141,6 +141,7 @@ sub rmsconvert {
         try {
             $self->_rmsconvert("$tmp_out");
             $i = 0;
+            $success = 1;
         }
         catch {
             my $t = MAX_TRY - $i + 1;
@@ -150,9 +151,12 @@ sub rmsconvert {
         }
     }
     my $ret = $self->_terminate_instance;
+    if (! $success) {
+        die "Error converting file to ", $self->suffix, ": $!\n";
+    }
 
     copy($tmp_out, $tgt_out)
-        or die "Error copying mzML: $!\n";
+        or die "Error copying ", $self->suffix, ": $!\n";
 
     return 1;
 

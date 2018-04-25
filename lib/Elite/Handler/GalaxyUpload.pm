@@ -13,7 +13,7 @@ sub run {
 
     $args{archive} //= 0;
 
-    for (qw/config archive/) {
+    for (qw/config url/) {
         die "Parameter $_ must be defined\n"
             if (! defined $args{$_});
     }
@@ -22,6 +22,7 @@ sub run {
     for (keys %{$args{config}}) {
         $self->{$_} = $args{config}->{$_};
     }
+    $self->{url} = $args{url};
 
     $self->upload;
 
@@ -36,8 +37,8 @@ sub upload {
     #my $output_file = "$self->{_output_path}/$self->{file}";
    
     my $ua = Bio::Galaxy::API->new(
-        url => 'http://localhost:8080',
-        check_secure => 0,
+        url => $self->{url},
+        check_secure => 1,
     ) or die "Failed to connect to Galaxy instance: $!\n";
 
     # find user's library

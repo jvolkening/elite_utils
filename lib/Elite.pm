@@ -246,7 +246,8 @@ sub _handle_new {
     if ($cfg->{galaxy_user}) {
         try {
             Elite::Handler::GalaxyUpload->run(
-                config  => $cfg,
+                config => $cfg,
+                url    => $self->{galaxy_url},
             );
             $self->_log( INFO, "Successfully uploaded $cfg->{path}$cfg->{file} to Galaxy" );
         }
