@@ -4,8 +4,9 @@ use strict;
 use warnings;
 use 5.012;
 
-use Email::Valid;
 use Array::Utils qw/array_minus/;
+use Email::Valid;
+use Net::Domain qw/hostfqdn/;
 use Paws;
 
 sub run {
