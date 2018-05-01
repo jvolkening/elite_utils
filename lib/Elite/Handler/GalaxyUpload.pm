@@ -42,7 +42,6 @@ sub upload {
     ) or die "Failed to connect to Galaxy instance: $!\n";
 
     # find user's library
-    my @libs = $ua->libraries;
     my @want = grep {$_->{name} eq $self->{galaxy_user}} $ua->libraries;
     if (@want < 1) {
         die "No matching library found for Galaxy user $self->{galaxy_user}\n";
@@ -50,7 +49,7 @@ sub upload {
     if (@want > 1) {
         die "Multiple matching libraries found for Galaxy user $self->{galaxy_user}\n";
     }
-    my $lib = $libs[0];
+    my $lib = $want[0];
 
     # normalize path structure
     my $path = "$self->{path}/" . basename($self->{_mzml_file});
