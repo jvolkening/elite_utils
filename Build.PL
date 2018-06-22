@@ -24,6 +24,7 @@ my $builder = Module::Build->new(
         'Linux::Inotify2' => 0,
         'Net::Domain'     => 0,
         'Net::SMTP'       => 0,
+        'Array::Utils'    => 0,
     },
     meta_merge => {
         resources => {
