@@ -1,4 +1,4 @@
-package Elite;
+package Thermo;
 
 use strict;
 use warnings;
@@ -15,13 +15,13 @@ use Net::SMTP;
 use Time::Piece;
 use Try::Tiny;
 
-use Elite::Handler::Raw;
-use Elite::Handler::MzML;
-use Elite::Handler::MGF;
-use Elite::Handler::Notify;
-use Elite::Handler::GalaxyUpload;
-use Elite::Handler::GalaxyRun;
-use Elite::Handler::Glacier;
+use Thermo::Handler::Raw;
+use Thermo::Handler::MzML;
+use Thermo::Handler::MGF;
+use Thermo::Handler::Notify;
+use Thermo::Handler::GalaxyUpload;
+use Thermo::Handler::GalaxyRun;
+use Thermo::Handler::Glacier;
 
 use constant ERROR => 0;
 use constant WARN  => 1;
@@ -180,7 +180,7 @@ sub _handle_new {
 
     if (any {$_ =~ /^raw$/i} @fmts) {
         try {
-            Elite::Handler::Raw->run(
+            Thermo::Handler::Raw->run(
                 config  => $cfg,
             );
             $self->_log( INFO, "Successfully transferred $cfg->{path}$cfg->{file}" );
@@ -196,7 +196,7 @@ sub _handle_new {
 
     if ($self->{vault_name}) {
         try {
-            my $ar_id = Elite::Handler::Glacier->run(
+            my $ar_id = Thermo::Handler::Glacier->run(
                 config  => $cfg,
             );
             $self->_log( INFO, "Successfully archived $cfg->{path}$cfg->{file} to Glacier archive $ar_id" );
@@ -212,7 +212,7 @@ sub _handle_new {
 
     if (any {$_ =~ /^mzml$/i} @fmts) {
         try {
-            my $fn = Elite::Handler::MzML->run(
+            my $fn = Thermo::Handler::MzML->run(
                 config  => $cfg,
             );
             $self->_log( INFO, "Successfully converted $cfg->{path}$cfg->{file} to MzML" );
@@ -229,7 +229,7 @@ sub _handle_new {
 
     if (any {$_ =~ /^mgf$/i} @fmts) {
         try {
-            Elite::Handler::MGF->run(
+            Thermo::Handler::MGF->run(
                 config  => $cfg,
             );
             $self->_log( INFO, "Successfully converted $cfg->{path}$cfg->{file} to MGF" );
@@ -245,7 +245,7 @@ sub _handle_new {
 
     if ($cfg->{galaxy_user}) {
         try {
-            Elite::Handler::GalaxyUpload->run(
+            Thermo::Handler::GalaxyUpload->run(
                 config => $cfg,
                 url    => $self->{galaxy_url},
             );
@@ -262,7 +262,7 @@ sub _handle_new {
 
     if ($cfg->{notify}) {
         try {
-            my ($passed, $failed) = Elite::Handler::Notify->run(
+            my ($passed, $failed) = Thermo::Handler::Notify->run(
                 config  => $cfg,
             );
             if (scalar @$passed) {
@@ -284,7 +284,7 @@ sub _handle_new {
 
     if ($cfg->{workflow}) {
         try {
-            Elite::Handler::GalaxyRun->run(
+            Thermo::Handler::GalaxyRun->run(
                 config  => $cfg,
             );
             $self->_log( INFO, "Successfully ran workflow $cfg->{workflow} on $cfg->{file}" );

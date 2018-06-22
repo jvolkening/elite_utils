@@ -1,4 +1,4 @@
-package Elite::Handler::Glacier;
+package Thermo::Handler::Glacier;
 
 use strict;
 use warnings;

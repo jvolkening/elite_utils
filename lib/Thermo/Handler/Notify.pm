@@ -1,4 +1,4 @@
-package Elite::Handler::Notify;
+package Thermo::Handler::Notify;
 
 use strict;
 use warnings;

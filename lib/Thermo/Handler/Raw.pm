@@ -1,4 +1,4 @@
-package Elite::Handler::Raw;
+package Thermo::Handler::Raw;
 
 use strict;
 use warnings;

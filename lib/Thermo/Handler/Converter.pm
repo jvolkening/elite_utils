@@ -1,4 +1,4 @@
-package Elite::Handler::Converter;
+package Thermo::Handler::Converter;
 
 use strict;
 use warnings;

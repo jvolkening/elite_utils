@@ -1,10 +1,10 @@
-package Elite::Handler::MGF;
+package Thermo::Handler::MGF;
 
 use strict;
 use warnings;
 use 5.012;
 
-use parent 'Elite::Handler::Converter';
+use parent 'Thermo::Handler::Converter';
 
 sub suffix {return 'mgf'}
 

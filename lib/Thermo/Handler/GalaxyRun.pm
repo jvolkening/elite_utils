@@ -1,4 +1,4 @@
-package Elite::Handler::GalaxyRun;
+package Thermo::Handler::GalaxyRun;
 
 use strict;
 use warnings;

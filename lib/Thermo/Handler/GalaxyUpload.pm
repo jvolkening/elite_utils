@@ -1,4 +1,4 @@
-package Elite::Handler::GalaxyUpload;
+package Thermo::Handler::GalaxyUpload;
 
 use strict;
 use warnings;
