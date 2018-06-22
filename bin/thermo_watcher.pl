@@ -5,7 +5,7 @@ use warnings;
 use 5.012;
 
 use Getopt::Long;
-use Elite;
+use Thermo;
 
 my $DIR_IN       = "$ENV{HOME}/incoming";
 my $DIR_OUT      = "$ENV{HOME}/shared";
@@ -31,7 +31,7 @@ GetOptions(
     'galaxy_url=s'   => \$GALAXY_URL,
 ) or die "Error parsing options: $@\n";
 
-my $handler = Elite->new(
+my $handler = Thermo->new(
     dir_in       => $DIR_IN,
     dir_out      => $DIR_OUT,
     admin_email  => $ADMIN_EMAIL,
