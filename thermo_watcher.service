@@ -2,7 +2,7 @@
 Description="Thermo watcher"
 
 [Service]
-ExecStart=/opt/bin/thermo_watcher.pl --admin_email volkening@wisc.edu
+ExecStart=/opt/bin/thermo_watcher.pl
 User=thermo
 Group=thermo
 WorkingDirectory=/home/thermo/
