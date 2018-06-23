@@ -9,7 +9,7 @@ use Digest::MD5;
 use Email::Valid;
 use File::Path qw/make_path/;
 use Linux::Inotify2;
-use List::Util qw/any/;
+use List::Util qw/any first/;
 use Net::Domain qw/hostfqdn/;
 use Net::SMTP;
 use Time::Piece;
@@ -32,6 +32,8 @@ my %class_msg = (
     WARN  , 'WARNING',
     INFO  , 'INFO',
 );
+
+our $VERSION = '0.003';
 
 #----------------------------------------------------------------------------#
 
@@ -210,10 +212,11 @@ sub _handle_new {
     # convert to MzML
     #------------------------------------------------------------------------#
 
-    if (any {$_ =~ /^mzml$/i} @fmts) {
+    if (defined (my $fmt = first {$_ =~ /^mzml(?:_nc)?$/i} @fmts) ) {
         try {
             my $fn = Thermo::Handler::MzML->run(
                 config  => $cfg,
+                fmt     => $fmt,
             );
             $self->_log( INFO, "Successfully converted $cfg->{path}$cfg->{file} to MzML" );
             $cfg->{_mzml_file} = $fn;
@@ -245,11 +248,12 @@ sub _handle_new {
 
     if ($cfg->{galaxy_user}) {
         try {
-            Thermo::Handler::GalaxyUpload->run(
+            my $id = Thermo::Handler::GalaxyUpload->run(
                 config => $cfg,
                 url    => $self->{galaxy_url},
             );
-            $self->_log( INFO, "Successfully uploaded $cfg->{path}$cfg->{file} to Galaxy" );
+            $self->_log( INFO, "Successfully uploaded $cfg->{path}$cfg->{file} to Galaxy $id" );
+            $cfg->{_mzml_file_id} = $id;
         }
         catch {
             $self->_log( INFO, "Failure uploading $cfg->{path}$cfg->{file} to Galaxy: $_" );
@@ -285,7 +289,8 @@ sub _handle_new {
     if ($cfg->{workflow}) {
         try {
             Thermo::Handler::GalaxyRun->run(
-                config  => $cfg,
+                config => $cfg,
+                url    => $self->{galaxy_url},
             );
             $self->_log( INFO, "Successfully ran workflow $cfg->{workflow} on $cfg->{file}" );
         }

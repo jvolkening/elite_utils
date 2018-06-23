@@ -44,6 +44,8 @@ sub run {
         $self->{$_} = $args{config}->{$_};
     }
 
+    $self->{_fmt} = $args{fmt};
+
     my $MSCONVERT = which('msconvert');
 
     # define output filename

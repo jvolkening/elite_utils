@@ -8,12 +8,25 @@ use parent 'Thermo::Handler::Converter';
 
 sub suffix {return 'mzML'}
 
-sub params { return
-    [
-        '--mzML',
-        '--numpressAll',
-        '--filter' => 'peakPicking true 1-',
-    ];
+sub params {
+
+    my ($self) = @_;
+   
+    if ($self->{_fmt} eq 'mzml') {
+        return [
+            '--mzML',
+            '--numpressAll',
+            '--filter' => 'peakPicking true 1-',
+        ];
+    }
+    if ($self->{_fmt} eq 'mzml_nc') {
+        return [
+            '--mzML',
+            '--numpressAll',
+        ];
+    }
+    die "Invalid mzml format specified";
+
 }
 
 1;
