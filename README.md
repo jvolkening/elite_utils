@@ -1,5 +1,3 @@
 # elite_utils
 
-This repository contains various tools for automated post-run handling of data from Thermo mass spectrometers.
-These tools are undergoing active development, are undocumented and are **NOT STABLE**.
-Use at your own risk.
+This repository contains the Thermo::Handler platform for managing data flow from a Thermo mass spectrometer, as well as various utilities. It should be considered to be in alpha testing stage.
