@@ -1,5 +1,4 @@
 bin/cp_raw
-bin/thermo_cleanup
 bin/thermo_handler
 Build.PL
 lib/Thermo/Handler.pm

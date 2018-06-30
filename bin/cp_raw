@@ -189,7 +189,7 @@ __END__
 
 =head1 NAME
 
-cp_raw - transfer RAW files from Thermo mass spectrometer to Thermo::Handler
+cp_raw - transfer RAW files from a Thermo mass spectrometer to a Thermo::Handler
 daemon
 
 =head1 SYNOPSIS
@@ -276,37 +276,6 @@ the case where all user data on the instrument PC are stored under a common
 directory, but there is no reason to include this directory when mirroring to
 the user's file stores downstream. (default: undefined)
 
-
-=back
-
-=head2 Configuration 
-
-=over 4
-
-=item B<--min_qual>
-
-Minimum quality for a base to be considered in consensus calling. Default: 10.
-
-=item B<--min_depth>
-
-Minimum read depth for consensus to be called (otherwise called as "N").  Default: 3.
-
-=item B<--trim>
-
-Fraction to trim from each end when calculating trimmed mean of error window.
-Default: 0.2.
-
-=item B<--window>
-
-Size of sliding window used to calculate local error rates. Default: 30.
-
-=item B<--bg_bin_figs> <integer>
-
-If greater than zero, the number of significant figures used to bin depths in
-bedgraph output. If zero, no binning is applied. This option is useful to
-reduce the size of bedgraph output by binning similar depth values when high
-resolution is not important. Default: 0 (disabled).
-
 =back
 
 =head1 CAVEATS AND BUGS
@@ -319,7 +288,7 @@ Jeremy Volkening (jdv@base2bio.com)
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2014-17 Jeremy Volkening
+Copyright 2014-18 Jeremy Volkening
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

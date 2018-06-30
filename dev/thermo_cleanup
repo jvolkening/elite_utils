@@ -1,0 +1,179 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use 5.012;
+
+use File::Find;
+use Getopt::Long;
+use Time::Piece;
+
+
+my $dir_in;
+my $fn_log;
+my $max_age;
+
+GetOptions(
+    'dir=s'     => \$dir_in,
+    'log=s'     => \$fn_log,
+    'max_age=i' => \$max_age,
+) or die "ERROR parsing command line: $@\n";
+
+# validate inputs
+die "Must specify a staging directory"
+    if (! defined $dir_in);
+die "Directory $dir_in does not exist or is not a directory\n"
+    if (! -d $dir_in);
+die "Must specify a maximum file age"
+    if (! defined $max_age);
+
+find(
+    {
+        wanted => \&process,
+        no_chdir => 1,
+    }, 
+    $dir_in
+);
+
+sub process {
+
+    my $fn = $_;
+    next if (! -f $fn);
+    next if (-M $fn <= $max_age);
+    logger( "Cleaned up $fn" );
+    #unlink $fn;
+
+}
+
+sub logger {
+
+    my ($msg) = @_;
+
+    open my $log, '>>', $fn_log
+        or die "ERROR: failed to open log for writing: $!\n";
+    say {$log} join "\t",
+        localtime()->datetime(),
+        $msg;
+    close $log;
+
+}
+
+__END__
+
+=head1 NAME
+
+thermo_cleanup - remove old files from the Thermo::Handler staging directory
+
+=head1 SYNOPSIS
+
+thermo_cleanup --dir /path/to/staging --log /path/to/logfile --max_age 7
+
+=head1 DESCRIPTION
+
+This script cleans up old files from the Thermo::Handler staging directory.
+Typically these files are no longer needed after the handler processes them,
+but are not automatically deleted. This script can be run as a cron job to
+remove those files after the specified time period (365 days by default, but
+you will almost certainly want to set this to a smaller value).
+
+=head1 PREREQUISITES
+
+ * L<File::Find>
+
+=head1 OPTIONS
+
+    'dir=s'          => \$fn_raw,
+    'out_dir=s'     => \$out_dir,
+    'formats=s'     => \$formats,
+    'notify=s'      => \$notify,
+    'galaxy_user=s' => \$galaxy,
+    'workflow=s'    => \$workflow,
+    'strip=s'       => \$strip,
+
+=head2 Inputs and outputs (required)
+
+=over 4
+
+=item B<--in> I<filename>
+
+Path to input RAW file
+
+=item B<--out_dir> I</path/to/share>
+
+Path to directory where output will be staged. This should be a directory
+monitored by a Thermo::Handler daemon, typically over a network share.
+
+=back
+
+=head2 Other options (optional)
+
+=over 4
+
+=item B<--formats>
+
+A comma-separated list of file format keywords that the raw file should be
+convered to. No spaces should be used between keywords. Currently, the
+following options are accepted (all others will be ignored):
+
+ * mzml    - centroided MzML format
+ * mzml_uc - uncentroided MzML format
+ * mgf     - Mascot MGF format
+
+If you specify a value for B<--galaxy_user>, MzML conversion will take place
+automatically. (default: undefined)
+
+=item B<--notify>
+
+A comma-separated list of targets that should be notified upon run and file
+conversion completion. Valid email addresses and phone numbers are accepted.
+No spaces should be used between values. (default: undefined)
+
+=item B<--galaxy_user>
+
+The email address of a valid Galaxy user. If found on the system, the data in
+MzML format will automatically be added to the user's data library. (default:
+undefined)
+
+=item B<--workflow>
+
+The name of a valid Galaxy workflow within the specified Galaxy user's
+account. If B<--galaxy_user> is not defined, this value will be ignored. Be
+sure to wrap this value in quotes if it contains whitespace. (default:
+undefined)
+
+=item B<--strip>
+
+A prefix string to remove from the start of all file paths. This is useful in
+the case where all user data on the instrument PC are stored under a common
+directory, but there is no reason to include this directory when mirroring to
+the user's file stores downstream. (default: undefined)
+
+=back
+
+=head1 CAVEATS AND BUGS
+
+Please submit bug reports to the issue tracker in the distribution repository.
+
+=head1 AUTHOR
+
+Jeremy Volkening (jdv@base2bio.com)
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2014-18 Jeremy Volkening
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=cut
+
