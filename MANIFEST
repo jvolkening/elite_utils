@@ -1,15 +1,8 @@
-bin/cloud_convert.pl
-bin/cp_raw.pl
-bin/galaxy_watcher.pl
-bin/glacier.dl.pl
-bin/glacier.paws.pl
-bin/glacier.ul.pl
-bin/msconvert_watcher.pl
-bin/new_user.pl
-bin/thermo_cleanup.pl
-bin/thermo_watcher.pl
+bin/cp_raw
+bin/thermo_cleanup
+bin/thermo_handler
 Build.PL
-lib/Thermo.pm
+lib/Thermo/Handler.pm
 lib/Thermo/Handler/Converter.pm
 lib/Thermo/Handler/GalaxyRun.pm
 lib/Thermo/Handler/GalaxyUpload.pm
@@ -19,6 +12,5 @@ lib/Thermo/Handler/MzML.pm
 lib/Thermo/Handler/Notify.pm
 lib/Thermo/Handler/Raw.pm
 MANIFEST			This list of files
-new_user.template
 README.md
 thermo_watcher.service

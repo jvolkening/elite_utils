@@ -5,19 +5,20 @@ use warnings;
 use 5.012;
 
 use File::Find;
+use Getopt::Long;
 use Time::Piece;
 
 my $max_age = $ARGV[0] // 0; # in days
 
-use constant IN  => "$ENV{HOME}/incoming";
-use constant LOG => "$ENV{HOME}/cleanup.log";
+my $DIR_IN   = "$ENV{HOME}/incoming";
+my $LOG_FILE = "$ENV{HOME}/cleanup.log";
 
 find(
     {
         wanted => \&process,
         no_chdir => 1,
     }, 
-    IN
+    $DIR_IN
 );
 
 sub process {
@@ -26,7 +27,7 @@ sub process {
     next if (! -f $fn);
     next if (-M $fn <= $max_age);
     logger( "Cleaned up $fn" );
-    #unlink $candidate;
+    #unlink $fn;
 
 }
 
@@ -34,11 +35,11 @@ sub logger {
 
     my ($msg) = @_;
 
-    open my $log, '>>', LOG
+    open my $log, '>>', $LOG_FILE
         or die "ERROR: failed to open log for writing: $!\n";
     say {$log} join "\t",
         localtime()->datetime(),
         $msg;
+    close $log;
 
 }
-

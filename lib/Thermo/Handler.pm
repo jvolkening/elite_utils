@@ -1,4 +1,4 @@
-package Thermo;
+package Thermo::Handler;
 
 use strict;
 use warnings;

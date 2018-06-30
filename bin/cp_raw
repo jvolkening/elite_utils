@@ -1,0 +1,338 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use 5.012;
+
+use Cwd qw/abs_path/;
+use Digest::MD5;
+use Encode qw/decode/;
+use File::Basename qw/basename fileparse/;
+use File::Copy;
+use File::Path qw/make_path/;
+use File::Temp;
+use Getopt::Long;
+use Time::Piece;
+
+my $NAME = 'cp_raw';
+my $VERSION = '0.005';
+
+use constant RAW_MAGIC => 0xa101;
+
+my $out_dir = "T:/incoming";
+my $fn_raw;
+my $formats;
+my $notify;
+my $galaxy;
+my $workflow;
+my $strip = 'Orbi_data';
+
+GetOptions(
+    'in=s'          => \$fn_raw,
+    'out_dir=s'     => \$out_dir,
+    'formats=s'     => \$formats,
+    'notify=s'      => \$notify,
+    'galaxy_user=s' => \$galaxy,
+    'workflow=s'    => \$workflow,
+    'strip=s'       => \$strip,
+) or die "ERROR parsing command line: $@\n";
+
+die "ERROR: No such RAW file or file not readable\n"
+    if (! -r $fn_raw);
+
+my (
+    $filename,
+    $head_formats,
+    $head_notify,
+    $head_galaxy,
+    $head_workflow,
+    $other
+) = parse_raw_header($fn_raw);
+
+# set params from file header only if not specified on command line
+$formats  //= $head_formats;
+$notify   //= $head_notify;
+$galaxy   //= $head_galaxy;
+$workflow //= $head_workflow;
+
+my ($base, $path, $suff) = fileparse( abs_path($fn_raw) );
+
+# strip volume letter and any prefix specified on command line
+$path =~ s/^[A-Z]\:[\\\/]//i;
+$path =~ s/$strip[\\\/]//i;
+
+my $out_path = "$out_dir/$path";
+my $fn_dest  = "$out_path$base";
+
+if (! -e $out_path) {
+    if (! make_path($out_path) ) {
+        logger( "ERROR creating path $out_path" );
+        return;
+    }
+}
+
+# input sanitizing
+die "Formats can contain only alphanumerics, underscores, hyphens, and commas"
+    if ($formats =~ /[^\w\-\,]/);
+
+die "Unallowed character(s) in notification string"
+    if ($notify =~ /[^\w\-\,\.\@\+]/);
+die "Unallowed character(s) in Galaxy username"
+    if ($galaxy =~ /[^\w\-\,\.\@]/);
+die "Unallowed character(s) in Galaxy workflow name"
+    if ($workflow =~ /[^\w\-\,\. ]/);
+
+# perform actual file transfer
+die "ERROR: $fn_dest exists and won't overwrite\n"
+    if (-e $fn_dest);
+copy( $fn_raw => $fn_dest )
+    or die "ERROR transferring file: $!\n";
+
+# calculate file metadata
+my $size = -s $fn_raw;
+open my $in, '<:raw', $fn_raw
+    or die "Failed to open $fn_raw for reading\n";
+my $dig = Digest::MD5->new;
+my $md5 = $dig->addfile($in)->hexdigest;
+
+# prepare 'ready' file
+my $ready  = File::Temp->new(
+    DIR    => $out_dir,
+    UNLINK => 0,
+    SUFFIX => '.ready',
+);
+say {$ready} "path=",        $path;
+say {$ready} "time=",        localtime()->datetime;
+say {$ready} "formats=",     $formats;
+say {$ready} "md5=",         $md5;
+say {$ready} "size=",        $size;
+say {$ready} "file=",        $base;
+say {$ready} "galaxy_user=", $galaxy;
+say {$ready} "notify=",      $notify;
+say {$ready} "workflow=",    $workflow;
+say {$ready} "done=",        '1';
+
+close $ready;
+
+exit;
+
+
+
+
+
+sub parse_raw_header {
+
+    my ($fn) = @_;
+
+    open my $raw, '<:raw', $fn;
+
+    # check magic bytes
+    my $magic = read_bin($raw => 'v');
+    die "Bad magic - is this a Thermo RAW file?\n"
+        if ($magic != RAW_MAGIC);
+
+    # check signature field
+    my $sig = decode('UTF-16LE', read_bin($raw => 'a18') );
+    die "Bad signature - unsupported or corrupt file\n"
+        if ($sig ne "Finnigan\0");
+
+    # skip rest of header
+    seek $raw, 1336, 1;
+    # skip injection data
+    seek $raw, 64, 1;
+
+    my @fields = map {read_pascal($raw)} 1..13;
+
+    my @user_fields = $fields[4..8];
+    my $filename    = $fields[11];
+    my $filepath    = $fields[12];
+
+    $filename = "$filepath/" . basename($filename);
+
+    return ($filename, @user_fields);
+
+}
+
+sub read_bin {
+
+    my ($fh, $type) = @_;
+
+    my $len = length(pack($type,()));
+    my $r   = read($fh, my $buf, $len);
+    die "Wrong number of bytes read (want $len, got $r)\n"
+        if ($r != $len);
+
+   return unpack "$type*", $buf;
+
+}
+
+sub read_pascal {
+
+    my ($fh) = @_;
+
+    my $buf;
+    my $r = read $fh, $buf, 4;
+    die "Wrong number of bytes read (want 4, got $r)\n"
+        if ($r != 4);
+    my $n_bytes = (unpack 'V', $buf) * 2;
+
+    $r = read $fh, $buf, $n_bytes;
+    die "Wrong number of bytes read (want $n_bytes, got $r)\n"
+        if ($r != $n_bytes);
+    return decode('UTF-16LE', $buf);
+
+}
+
+__END__
+
+
+=head1 NAME
+
+cp_raw - transfer RAW files from Thermo mass spectrometer to Thermo::Handler
+daemon
+
+=head1 SYNOPSIS
+
+cp_raw --in file.raw --out_dir /path/to/share/mount [other_options]
+
+=head1 DESCRIPTION
+
+The cp_raw program handles transfer of a Thermo RAW file and associated
+metadata file from the mass spectrometer to a file share monitored by a
+Thermo::Handler daemon. It is intended to be called by the XCalibur software
+automatically upon run completion, but can be called manually as well to add a
+file to the processing queue.
+
+=head1 PREREQUISITES
+
+This program uses only core modules.
+
+=head1 OPTIONS
+
+    'in=s'          => \$fn_raw,
+    'out_dir=s'     => \$out_dir,
+    'formats=s'     => \$formats,
+    'notify=s'      => \$notify,
+    'galaxy_user=s' => \$galaxy,
+    'workflow=s'    => \$workflow,
+    'strip=s'       => \$strip,
+
+=head2 Inputs and outputs (required)
+
+=over 4
+
+=item B<--in> I<filename>
+
+Path to input RAW file
+
+=item B<--out_dir> I</path/to/share>
+
+Path to directory where output will be staged. This should be a directory
+monitored by a Thermo::Handler daemon, typically over a network share.
+
+=back
+
+=head2 Other options (optional)
+
+=over 4
+
+=item B<--formats>
+
+A comma-separated list of file format keywords that the raw file should be
+convered to. No spaces should be used between keywords. Currently, the
+following options are accepted (all others will be ignored):
+
+ * mzml    - centroided MzML format
+ * mzml_uc - uncentroided MzML format
+ * mgf     - Mascot MGF format
+
+If you specify a value for B<--galaxy_user>, MzML conversion will take place
+automatically. (default: undefined)
+
+=item B<--notify>
+
+A comma-separated list of targets that should be notified upon run and file
+conversion completion. Valid email addresses and phone numbers are accepted.
+No spaces should be used between values. (default: undefined)
+
+=item B<--galaxy_user>
+
+The email address of a valid Galaxy user. If found on the system, the data in
+MzML format will automatically be added to the user's data library. (default:
+undefined)
+
+=item B<--workflow>
+
+The name of a valid Galaxy workflow within the specified Galaxy user's
+account. If B<--galaxy_user> is not defined, this value will be ignored. Be
+sure to wrap this value in quotes if it contains whitespace. (default:
+undefined)
+
+=item B<--strip>
+
+A prefix string to remove from the start of all file paths. This is useful in
+the case where all user data on the instrument PC are stored under a common
+directory, but there is no reason to include this directory when mirroring to
+the user's file stores downstream. (default: undefined)
+
+
+=back
+
+=head2 Configuration 
+
+=over 4
+
+=item B<--min_qual>
+
+Minimum quality for a base to be considered in consensus calling. Default: 10.
+
+=item B<--min_depth>
+
+Minimum read depth for consensus to be called (otherwise called as "N").  Default: 3.
+
+=item B<--trim>
+
+Fraction to trim from each end when calculating trimmed mean of error window.
+Default: 0.2.
+
+=item B<--window>
+
+Size of sliding window used to calculate local error rates. Default: 30.
+
+=item B<--bg_bin_figs> <integer>
+
+If greater than zero, the number of significant figures used to bin depths in
+bedgraph output. If zero, no binning is applied. This option is useful to
+reduce the size of bedgraph output by binning similar depth values when high
+resolution is not important. Default: 0 (disabled).
+
+=back
+
+=head1 CAVEATS AND BUGS
+
+Please submit bug reports to the issue tracker in the distribution repository.
+
+=head1 AUTHOR
+
+Jeremy Volkening (jdv@base2bio.com)
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2014-17 Jeremy Volkening
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=cut
+

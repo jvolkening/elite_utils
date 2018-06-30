@@ -5,8 +5,9 @@ use warnings;
 use 5.012;
 
 use Getopt::Long;
-use Thermo;
+use Thermo::Handler;
 
+# set defaults
 my $DIR_IN       = "$ENV{HOME}/incoming";
 my $DIR_OUT      = "$ENV{HOME}/shared";
 my $LOG_FILE     = "$ENV{HOME}/transfer.log";
@@ -18,6 +19,7 @@ my $GALAXY_URL   = 'http://localhost:8080';
 my $ADMIN_EMAIL;
 my $VAULT_NAME;
 
+# parse user overrides
 GetOptions(
     'admin_email=s'  => \$ADMIN_EMAIL,
     'dir_in=s'       => \$DIR_IN,
