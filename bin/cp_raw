@@ -210,14 +210,6 @@ This program uses only core modules.
 
 =head1 OPTIONS
 
-    'in=s'          => \$fn_raw,
-    'out_dir=s'     => \$out_dir,
-    'formats=s'     => \$formats,
-    'notify=s'      => \$notify,
-    'galaxy_user=s' => \$galaxy,
-    'workflow=s'    => \$workflow,
-    'strip=s'       => \$strip,
-
 =head2 Inputs and outputs (required)
 
 =over 4
