@@ -6,7 +6,7 @@ use Module::Build;
 use Config;
 
 my $builder = Module::Build->new(
-    module_name        => 'Thermo',
+    module_name        => 'Thermo::Handler',
     license            => 'GPL_3',
     dist_author        => q{Jeremy Volkening <jdv@base2bio.com>},
     dist_abstract      => q{Utilities for automating data transfer from an Orbitrap},
@@ -31,7 +31,7 @@ my $builder = Module::Build->new(
             repository => 'https://github.com/jvolkening/elite_utils'
         }
     },
-    add_to_cleanup => [ 'Thermo-*' ],
+    add_to_cleanup => [ 'Thermo-Handler-*' ],
     create_license => 1,
 );
 $builder->create_build_script;
