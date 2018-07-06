@@ -1,8 +1,8 @@
 [Unit]
-Description="Thermo watcher"
+Description="Thermo handler"
 
 [Service]
-ExecStart=/opt/bin/thermo_watcher.pl
+ExecStart=/opt/bin/thermo_handler
 User=thermo
 Group=thermo
 WorkingDirectory=/home/thermo/
