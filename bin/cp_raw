@@ -144,7 +144,7 @@ sub parse_raw_header {
 
     my @fields = map {read_pascal($raw)} 1..13;
 
-    my @user_fields = $fields[4..8];
+    my @user_fields = @fields[4..8];
     my $filename    = $fields[11];
     my $filepath    = $fields[12];
 
