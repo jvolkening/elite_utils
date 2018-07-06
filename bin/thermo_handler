@@ -33,7 +33,7 @@ GetOptions(
     'vault_name=s'      => \$VAULT_NAME,
 ) or die "Error parsing options: $@\n";
 
-my $handler = Thermo->new(
+my $handler = Thermo::Handler->new(
     dir_in       => $DIR_IN,
     dir_out      => $DIR_OUT,
     admin_email  => $ADMIN_EMAIL,
