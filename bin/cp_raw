@@ -21,6 +21,7 @@ my $VERSION = '0.005';
 use constant RAW_MAGIC => 0xa101;
 
 my $out_dir = "T:/incoming";
+my $fn_log  = "T:/cp_raw.log";
 my $fn_raw;
 my $formats;
 my $notify;
@@ -31,14 +32,15 @@ my $strip = 'Orbi_data';
 GetOptions(
     'in=s'          => \$fn_raw,
     'out_dir=s'     => \$out_dir,
+    'log=s'         => \$fn_log,
     'formats=s'     => \$formats,
     'notify=s'      => \$notify,
     'galaxy_user=s' => \$galaxy,
     'workflow=s'    => \$workflow,
     'strip=s'       => \$strip,
-) or die "ERROR parsing command line: $@\n";
+) or log_die("ERROR parsing command line: $@\n");
 
-die "ERROR: No such RAW file or file not readable\n"
+log_die("ERROR: No such RAW file or file not readable\n")
     if (! -r $fn_raw);
 
 my (
@@ -74,26 +76,26 @@ if (! -e $out_path) {
 
 # input sanitizing
 $formats =~ s/\s//g;
-die "Formats can contain only alphanumerics, underscores, hyphens, and commas"
+log_die("Formats can contain only alphanumerics, underscores, hyphens, and commas")
     if ($formats =~ /[^\w\-\,]/);
 
-die "Unallowed character(s) in notification string"
+log_die("Unallowed character(s) in notification string")
     if ($notify =~ /[^\w\-\,\.\@\+]/);
-die "Unallowed character(s) in Galaxy username"
+log_die("Unallowed character(s) in Galaxy username")
     if ($galaxy =~ /[^\w\-\,\.\@]/);
-die "Unallowed character(s) in Galaxy workflow name"
+log_die("Unallowed character(s) in Galaxy workflow name")
     if ($workflow =~ /[^\w\-\,\. ]/);
 
 # perform actual file transfer
-die "ERROR: $fn_dest exists and won't overwrite\n"
+log_die("ERROR: $fn_dest exists and won't overwrite\n")
     if (-e $fn_dest);
 copy( $fn_raw => $fn_dest )
-    or die "ERROR transferring file: $!\n";
+    or log_die("ERROR transferring file: $!\n");
 
 # calculate file metadata
 my $size = -s $fn_raw;
 open my $in, '<:raw', $fn_raw
-    or die "Failed to open $fn_raw for reading\n";
+    or log_die("Failed to open $fn_raw for reading\n");
 my $dig = Digest::MD5->new;
 my $md5 = $dig->addfile($in)->hexdigest;
 
@@ -130,12 +132,12 @@ sub parse_raw_header {
 
     # check magic bytes
     my $magic = read_bin($raw => 'v');
-    die "Bad magic - is this a Thermo RAW file?\n"
+    log_die("Bad magic - is this a Thermo RAW file?\n")
         if ($magic != RAW_MAGIC);
 
     # check signature field
     my $sig = decode('UTF-16LE', read_bin($raw => 'a18') );
-    die "Bad signature - unsupported or corrupt file\n"
+    log_die("Bad signature - unsupported or corrupt file\n")
         if ($sig ne "Finnigan\0");
 
     # skip rest of header
@@ -161,7 +163,7 @@ sub read_bin {
 
     my $len = length(pack($type,()));
     my $r   = read($fh, my $buf, $len);
-    die "Wrong number of bytes read (want $len, got $r)\n"
+    log_die("Wrong number of bytes read (want $len, got $r)\n")
         if ($r != $len);
 
    return unpack "$type*", $buf;
@@ -174,16 +176,32 @@ sub read_pascal {
 
     my $buf;
     my $r = read $fh, $buf, 4;
-    die "Wrong number of bytes read (want 4, got $r)\n"
+    log_die("Wrong number of bytes read (want 4, got $r)\n")
         if ($r != 4);
     my $n_bytes = (unpack 'V', $buf) * 2;
 
     $r = read $fh, $buf, $n_bytes;
-    die "Wrong number of bytes read (want $n_bytes, got $r)\n"
+    log_die("Wrong number of bytes read (want $n_bytes, got $r)\n")
         if ($r != $n_bytes);
     return decode('UTF-16LE', $buf);
 
 }
+
+sub log_die {
+
+    my ($msg) = @_;
+
+    open my $log, '>>', $fn_log;
+    say join "\t",
+        localtime()->datetime,
+        $msg,
+    ;
+    close $log;
+
+    die $msg;
+
+}
+
 
 __END__
 
