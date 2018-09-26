@@ -73,6 +73,7 @@ if (! -e $out_path) {
 }
 
 # input sanitizing
+$formats =~ s/\s//g;
 die "Formats can contain only alphanumerics, underscores, hyphens, and commas"
     if ($formats =~ /[^\w\-\,]/);
 
