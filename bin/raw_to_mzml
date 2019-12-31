@@ -1,0 +1,178 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use 5.012;
+
+use Getopt::Long;
+use Thermo::Handler::MzML;
+use Try::Tiny;
+
+# set defaults
+my $AWS_REGION   = 'us-east-2';
+my $SNS_REGION   = 'us-east-1';
+my $COUNTRY_CODE = '+1'; # default US
+my $MACHINE_NAME = 'Thermo mass spectrometer';
+my $ADMIN_EMAIL;
+my $numpress = 0;
+my $centroid = 0;
+my $fi_raw;
+my $out_dir;
+
+# parse user overrides
+GetOptions(
+    'admin_email=s'     => \$ADMIN_EMAIL,
+    'aws_region=s'      => \$AWS_REGION,
+    'country_code=s'    => \$COUNTRY_CODE,
+    'raw=s'             => \$fi_raw,
+    'out_dir=s'         => \$out_dir,
+    'instrument_name=s' => \$MACHINE_NAME,
+    'sns_region=s'      => \$SNS_REGION,
+    'numpress'          => \$numpress,
+    'centroid'          => \$centroid,
+) or die "Error parsing options: $@\n";
+
+my $fmt = $centroid ? 'mzml_nc' : 'mzml';
+my $cfg = {
+    _output_path => $out_dir,
+    _input_file  => $fi_raw,
+    _aws_region  => $AWS_REGION,
+};
+
+#try {
+    say STDERR "Trying to convert $fi_raw to $out_dir";
+    my $fn = Thermo::Handler::MzML->run(
+        config  => $cfg,
+        fmt     => $fmt,
+    ) // die "Failure converting\n";
+    say STDERR "Successfully converted $cfg->{_input_file} to MzML";
+    $cfg->{_mzml_file} = $fn;
+#}
+#catch {
+    #die "Failure converting $cfg->{path}$cfg->{file} to MzML: $_\n";
+#}
+
+exit;
+
+
+__END__
+
+=head1 NAME
+
+thermo_handler - direct flow of data from a Thermo mass spectrometer
+
+=head1 SYNOPSIS
+
+thermo_handler --dir_in I</path/to/staging/dir> --dir_out I</path/to/final/dir [other options]
+
+=head1 DESCRIPTION
+
+The thermo_handler daemon handles processing and traffic control for data
+coming off of a Thermo mass spectrometer. It monitors a staging directory for
+incoming raw files and metadata files and triggers handler modules based on
+the contents of the metadata file. It is meant to be run as a system service,
+and a B<systemd> template is included in the distribution which can be
+modified and used locally.
+
+Please see the online documentation for full details on installation and
+setup.
+
+=head1 PREREQUISITES
+
+The following non-core modules are required:
+
+ * Array::Utils qw/array_minus/;
+ * Bio::Galaxy::API;
+ * Config::Tiny;
+ * Email::Valid;
+ * File::HomeDir;
+ * File::Path qw/make_path/;
+ * File::Temp qw/tempfile/;
+ * File::Which qw/which/;
+ * Linux::Inotify2;
+ * Net::Amazon::Glacier;
+ * Net::Domain qw/hostfqdn/;
+ * Net::Rmsconvert;
+ * Net::SMTP;
+ * Paws;
+ * Thermo::Handler;
+ * Try::Tiny;
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--admin_email> I<string>
+
+An email address to which status messages will be sent (default: none)
+
+=item B<--aws_region> I<string>
+
+The region to which AWS calls should be directed. A separate region should be
+specified for SNS calls using the B<--sns_region> parameter. (default: us-east-2)
+
+=item B<--country_code> I<string>
+
+The country code prefix to be prepended to phone numbers without one (default:
++1)
+
+=item B<--dir_in> I<string>
+
+The staging directory to be monitored for incoming traffic
+
+=item B<--dir_out> I<string>
+
+The output directory where data should be moved to
+
+=item B<--galaxy_url> I<string>
+
+The full URL (including port if non-standard) of the Galaxy instance to which
+API calls should be directed.
+
+=item B<--log_file> I<string>
+
+The name of the file where log messages should be written
+
+=item B<--instrument_name> I<string>
+
+The name of the instrument to be included in notification messages (default:
+'Thermo mass spectrometer')
+
+=item B<--sns_region> I<string>
+
+The AWS region to use for SNS messages (default: us-east-1)
+
+=item B<--vault_name> I<string>
+
+The name of the Glacier vault to which files will be uploaded. If not
+specified, no Glacier uploads will be done. (default: undefined)
+
+=back
+
+=head1 CAVEATS AND BUGS
+
+Please submit bug reports to the issue tracker in the distribution repository.
+
+=head1 AUTHOR
+
+Jeremy Volkening (jdv@base2bio.com)
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2014-18 Jeremy Volkening
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=cut
+

@@ -1,4 +1,5 @@
 bin/cp_raw
+bin/raw_to_mzml
 bin/thermo_handler
 Build.PL
 lib/Thermo/Handler.pm
